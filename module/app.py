@@ -4,6 +4,7 @@ import asyncio
 import os
 import time
 from asyncio import Lock
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
@@ -169,6 +170,8 @@ class TaskNode:
         self.is_stop_transmission = False
         self.media_group_ids: dict = {}
         self.media_group_ids_lock: Lock = Lock()
+        self.download_media_groups: OrderedDict = OrderedDict()
+        self.download_media_groups_lock: Lock = Lock()
         self.download_status: dict = {}
         self.upload_status: dict = {}
         self.upload_stat_dict: dict = {}
@@ -458,7 +461,7 @@ class Application:
             self.proxy = _config["proxy"]
         if _config.get("restart_program"):
             self.restart_program = _config["restart_program"]
-        if _config.get("file_path_prefix"):
+        if _config.get("file_path_prefix") is not None:
             self.file_path_prefix = _config["file_path_prefix"]
         if _config.get("file_name_prefix"):
             self.file_name_prefix = _config["file_name_prefix"]

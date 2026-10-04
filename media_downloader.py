@@ -20,6 +20,7 @@ from module.pyrogram_extension import (
     HookClient,
     fetch_message,
     get_extension,
+    get_media_group_with_retry,
     record_download_status,
     report_bot_download_status,
     set_max_concurrent_transmissions,
@@ -162,11 +163,18 @@ def _is_exist(file_path: str) -> bool:
 # pylint: disable = R0912
 
 
+def _get_media_file_stem(message: pyrogram.types.Message) -> str:
+    """Use the message ID and a fixed year/month for media and text filenames."""
+    year_month = message.date.strftime("%Y%m") if message.date else "000000"
+    return f"{message.id}_{year_month}"
+
+
 async def _get_media_meta(
     chat_id: Union[int, str],
     message: pyrogram.types.Message,
     media_obj: Union[Audio, Document, Photo, Video, VideoNote, Voice],
     _type: str,
+    media_group: Optional[List[pyrogram.types.Message]] = None,
 ) -> Tuple[str, str, Optional[str]]:
     """Extract file name and file id from media object.
 
@@ -190,12 +198,13 @@ async def _get_media_meta(
 
     file_name = None
     temp_file_name = None
+    path_message = media_group[0] if media_group else message
     dirname = validate_title(f"{chat_id}")
-    if message.chat and message.chat.title:
-        dirname = validate_title(f"{message.chat.title}")
+    if path_message.chat and path_message.chat.title:
+        dirname = validate_title(f"{path_message.chat.title}")
 
-    if message.date:
-        datetime_dir_name = message.date.strftime(app.date_format)
+    if path_message.date:
+        datetime_dir_name = path_message.date.strftime(app.date_format)
     else:
         datetime_dir_name = "0"
 
@@ -203,12 +212,7 @@ async def _get_media_meta(
         # pylint: disable = C0209
         file_format = media_obj.mime_type.split("/")[-1]  # type: ignore
         file_save_path = app.get_file_save_path(_type, dirname, datetime_dir_name)
-        file_name = "{} - {}_{}.{}".format(
-            message.id,
-            _type,
-            media_obj.date.isoformat(),  # type: ignore
-            file_format,
-        )
+        file_name = f"{_get_media_file_stem(path_message)}_p1.{file_format}"
         file_name = validate_title(file_name)
         temp_file_name = os.path.join(app.temp_save_path, dirname, file_name)
 
@@ -224,8 +228,8 @@ async def _get_media_meta(
             )
         else:
             # file_name = file_name.split(".")[0]
-            _, file_name_without_suffix = os.path.split(os.path.normpath(file_name))
-            file_name, file_name_suffix = os.path.splitext(file_name_without_suffix)
+            file_name = os.path.basename(os.path.normpath(file_name))
+            file_name, file_name_suffix = os.path.splitext(file_name)
             if not file_name_suffix:
                 file_name_suffix = get_extension(
                     media_obj.file_id, getattr(media_obj, "mime_type", "")
@@ -243,8 +247,13 @@ async def _get_media_meta(
         if not file_name and message.photo:
             file_name = f"{message.photo.file_unique_id}"
 
+        position = (
+            [item.id for item in media_group].index(message.id) + 1
+            if media_group
+            else 1
+        )
         gen_file_name = (
-            app.get_file_name(message.id, file_name, caption) + file_name_suffix
+            f"{_get_media_file_stem(path_message)}_p{position}{file_name_suffix}"
         )
 
         file_save_path = app.get_file_save_path(_type, dirname, datetime_dir_name)
@@ -253,6 +262,66 @@ async def _get_media_meta(
 
         file_name = os.path.join(file_save_path, gen_file_name)
     return truncate_filename(file_name), truncate_filename(temp_file_name), file_format
+
+
+async def _get_download_media_group(
+    client: pyrogram.Client, message: pyrogram.types.Message, node: TaskNode
+) -> Optional[List[pyrogram.types.Message]]:
+    """Resolve the complete album before assigning stable names to its members."""
+    if not message.media_group_id:
+        return None
+
+    group_id = message.media_group_id
+    async with node.download_media_groups_lock:
+        media_group: Optional[
+            List[pyrogram.types.Message]
+        ] = node.download_media_groups.get(group_id)
+        if media_group is not None and any(
+            item.id == message.id for item in media_group
+        ):
+            node.download_media_groups.move_to_end(group_id)
+            return media_group
+
+        messages = await get_media_group_with_retry(client, node.chat_id, message.id)
+        members = {
+            item.id: item
+            for item in messages or []
+            if not item.empty and item.media_group_id == group_id
+        }
+        if message.id not in members:
+            raise ValueError(f"Could not resolve media group for message {message.id}")
+
+        media_group = [members[message_id] for message_id in sorted(members)]
+        node.download_media_groups[group_id] = media_group
+        node.download_media_groups.move_to_end(group_id)
+        # Keep long-running listeners from retaining every album's Message objects.
+        if len(node.download_media_groups) > 128:
+            node.download_media_groups.popitem(last=False)
+        return media_group
+
+
+def _save_media_group_text(
+    chat_id: Union[int, str], media_group: List[pyrogram.types.Message]
+) -> str:
+    """Save every caption and text verbatim, with a newline between fields."""
+    first = media_group[0]
+    dirname = validate_title(
+        first.chat.title if first.chat and first.chat.title else str(chat_id)
+    )
+    datetime_dir_name = first.date.strftime(app.date_format) if first.date else "0"
+    file_save_path = app.get_file_save_path("msg", dirname, datetime_dir_name)
+    file_name = os.path.join(file_save_path, f"{_get_media_file_stem(first)}.txt")
+    text_parts = [
+        value
+        for message in media_group
+        for value in (message.caption, message.text)
+        if value is not None and value != ""
+    ]
+
+    os.makedirs(file_save_path, exist_ok=True)
+    with open(file_name, "w", encoding="utf-8", newline="") as text_file:
+        text_file.write("\n".join(text_parts))
+    return file_name
 
 
 async def add_download_task(
@@ -279,9 +348,8 @@ async def save_msg_to_file(
 
     file_save_path = app.get_file_save_path("msg", dirname, datetime_dir_name)
     file_name = os.path.join(
-        app.temp_save_path,
         file_save_path,
-        f"{app.get_file_name(message.id, None, None)}.txt",
+        f"{_get_media_file_stem(message)}.txt",
     )
 
     os.makedirs(os.path.dirname(file_name), exist_ok=True)
@@ -289,7 +357,7 @@ async def save_msg_to_file(
     if _is_exist(file_name):
         return DownloadStatus.SkipDownload, None
 
-    with open(file_name, "w", encoding="utf-8") as f:
+    with open(file_name, "w", encoding="utf-8", newline="") as f:
         f.write(message.text or "")
 
     return DownloadStatus.SuccessDownload, file_name
@@ -401,8 +469,9 @@ async def download_media(
             _media = getattr(message, _type, None)
             if _media is None:
                 continue
+            media_group = await _get_download_media_group(client, message, node)
             file_name, temp_file_name, file_format = await _get_media_meta(
-                node.chat_id, message, _media, _type
+                node.chat_id, message, _media, _type, media_group
             )
             media_size = getattr(_media, "file_size", 0)
 
@@ -411,6 +480,8 @@ async def download_media(
                 ui_file_name = f"****{os.path.splitext(file_name)[-1]}"
 
             if _can_download(_type, file_formats, file_format):
+                if media_group:
+                    _save_media_group_text(node.chat_id, media_group)
                 if _is_exist(file_name):
                     file_size = os.path.getsize(file_name)
                     if file_size or file_size == media_size:

@@ -222,11 +222,11 @@ enable_download_txt: false
   - `rclone_path` - RClone exe path, see [How to use rclone](https://github.com/tangyoha/telegram_media_downloader/wiki/Rclone)
   - `before_upload_file_zip` - Zip file before upload, default `false`.
   - `after_upload_file_delete` - Delete file after upload success, default `false`.
-- **file_name_prefix** - Custom file name, use the same as **file_path_prefix**
+- **file_name_prefix** - Retained legacy file-name configuration. Downloaded media and TXT files use the ID and year-month naming rule below instead.
   - `message_id` - Message id
   - `file_name` - File name (may be empty)
   - `caption` - The title of the message (may be empty)
-- **file_name_prefix_split** - Custom file name prefix symbol, the default is `-`
+- **file_name_prefix_split** - Legacy file-name separator, default ` - `. It does not affect the naming rule below.
 - **max_download_task** - The maximum number of task download tasks, the default is 5.
 - **hide_file_name** - Whether to hide the web interface file name, default `false`
 - **web_host** - Web host
@@ -237,9 +237,12 @@ enable_download_txt: false
 - **forward_limit** - Limit the number of forwards per minute, the default is 33, please do not modify this parameter by default.
 - **allowed_user_ids** - Who is allowed to use the robot? The default login account can be used. Please add single quotes to the name with @.
 - **date_format** Support custom configuration of media_datetime format in file_path_prefix.see [python-datetime](https://docs.python.org/3/library/datetime.html)
-- **enable_download_txt** Enable download txt file, default `false`
+- **enable_download_txt** Enable TXT downloads for standalone text messages, default `false`. Media-group TXT files are always saved independently of this setting.
 
 ## Execution
+
+On Windows, double-click `start.bat` in the project root to launch using the project's `.venv` Python.
+To scan from the beginning, close the downloader and run `clear_download_history.bat`. Only entering lowercase `y` and pressing Enter clears download cursors and retry lists; all other input cancels. Original files are backed up under `temp/history-reset-backup-*`. Settings, downloaded media, and login sessions are preserved. Existing media with matching filenames are still skipped.
 
 ```sh
 python3 media_downloader.py
@@ -251,6 +254,21 @@ The specific location reference is as follows:
 The complete directory of video download is: `save_path`/`chat_title`/`media_datetime`/`media_type`.
 The order of the list is not fixed and can be randomly combined.
 If the configuration is empty, all files are saved under `save_path`.
+
+### File names, flat storage, and text
+
+Media files use `[id]_[YYYYMM]_p[n].extension`. The year-month format is fixed and is independent of `date_format`. Files in the same Telegram media group (album) share the group's smallest message ID and that message's year-month. Members are numbered `_p1`, `_p2`, and so on in ascending message-ID order, retaining their original file extensions. For example, a group whose first message ID is `12345` and date is in September 2026 is saved as `12345_202609_p1.mp4`, `12345_202609_p2.jpg`, `12345_202609_p3.png`, and `12345_202609.txt`. The TXT file has no `_p` suffix. Standalone media use their own message ID and year-month with `_p1`; standalone text messages use `[id]_[YYYYMM].txt` and remain controlled by `enable_download_txt`. If the API provides no date, the year-month is `000000`.
+
+Set the following in `config.yaml` to keep a chat subdirectory and save media and TXT files together in `save_path/chat_title/`, without date or media-type subdirectories:
+
+```yaml
+file_path_prefix:
+  - chat_title
+```
+
+Each downloaded media group automatically gets a UTF-8 TXT file, even when `enable_download_txt` is `false`. It contains every member's original `caption` and `text`, in message-ID order, separated by newlines. Hashtags, plain text, code-block text, spaces, and existing line breaks are preserved as returned by the API, without cleaning or escaping. A group with no text gets an empty TXT file.
+
+A nonempty `file_path_prefix` still creates the configured subdirectories, using the date of the group's smallest message ID for `media_datetime`. If the path includes `media_type`, the TXT file goes in the `msg` directory; otherwise it shares the media files' directory. Only content belonging to that media group according to the API is included; adjacent standalone messages are not merged. Existing files from the old naming scheme are not renamed or migrated.
 
 ## Proxy
 

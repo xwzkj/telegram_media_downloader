@@ -60,8 +60,8 @@ class AppTestCase(unittest.TestCase):
             app.app_data["chat"][0]["ids_to_retry"],
         )
 
-    @mock.patch("__main__.__builtins__.open", new_callable=mock.mock_open)
-    @mock.patch("module.app.yaml", autospec=True)
+    @mock.patch("builtins.open", new_callable=mock.mock_open)
+    @mock.patch("module.app._yaml", autospec=True)
     def test_update_config(self, mock_yaml, mock_open):
         app = Application("", "")
         app.config_file = "config_test.yaml"
@@ -69,3 +69,27 @@ class AppTestCase(unittest.TestCase):
         app.config["chat"] = [{"chat_id": 123, "last_read_message_id": 0}]
         app.update_config()
         mock_open.assert_called_with("data_test.yaml", "w", encoding="utf-8")
+        self.assertEqual(mock_yaml.dump.call_count, 2)
+
+    def test_empty_path_prefix_enables_flat_storage_and_persists(self):
+        app = Application("", "")
+        try:
+            app.config = {
+                "api_id": 123,
+                "api_hash": "test",
+                "media_types": ["photo", "video"],
+                "file_formats": {"video": ["all"]},
+                "file_path_prefix": [],
+            }
+            app.assign_config(app.config)
+            self.assertEqual(app.file_path_prefix, [])
+            for media_type in ("photo", "video", "msg"):
+                self.assertEqual(
+                    app.get_file_save_path(media_type, "Test Chat", "2026_09"),
+                    app.save_path,
+                )
+            app.update_config(False)
+            self.assertEqual(app.config["file_path_prefix"], [])
+        finally:
+            app.loop.close()
+            app.executor.shutdown(wait=False)

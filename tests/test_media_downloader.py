@@ -69,19 +69,19 @@ def os_remove(_: str):
 
 
 def is_exist(file: str):
-    if os.path.basename(file).find("313 - sucess_exist_down.mp4") != -1:
+    if os.path.basename(file).find("313_000000_p1.mp4") != -1:
         return True
-    elif os.path.basename(file).find("422 - exception.mov") != -1:
+    elif os.path.basename(file).find("422_000000_p1.mov") != -1:
         raise Exception
     return False
 
 
 def os_get_file_size(file: str) -> int:
-    if os.path.basename(file).find("311 - failed_down.mp4") != -1:
+    if os.path.basename(file).find("311_000000_p1.mp4") != -1:
         return 0
-    elif os.path.basename(file).find("312 - sucess_down.mp4") != -1:
+    elif os.path.basename(file).find("312_000000_p1.mp4") != -1:
         return 1024
-    elif os.path.basename(file).find("313 - sucess_exist_down.mp4") != -1:
+    elif os.path.basename(file).find("313_000000_p1.mp4") != -1:
         return 1024
     return 0
 
@@ -346,16 +346,11 @@ class MockClient:
         return True
 
 
-def check_for_updates(_: dict = None):
-    pass
-
-
 @mock.patch("media_downloader.get_extension", new=get_extension)
 @mock.patch("module.pyrogram_extension.get_extension", new=get_extension)
 @mock.patch("media_downloader.fetch_message", new=new_fetch_message)
 @mock.patch("media_downloader.get_chat_history_v2", new=get_chat_history)
 @mock.patch("media_downloader.RETRY_TIME_OUT", new=0)
-@mock.patch("media_downloader.check_for_updates", new=check_for_updates)
 class MediaDownloaderTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -383,13 +378,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
 
         self.assertEqual(
             (
+                platform_generic_path("/root/project/test1/2019_07/1_201907_p1.ogg"),
                 platform_generic_path(
-                    "/root/project/test1/2019_07/1 - voice_2019-07-25T14_53_50.ogg"
-                ),
-                platform_generic_path(
-                    os.path.join(
-                        app.temp_save_path, "test1/1 - voice_2019-07-25T14_53_50.ogg"
-                    )
+                    os.path.join(app.temp_save_path, "test1/1_201907_p1.ogg")
                 ),
                 "ogg",
             ),
@@ -411,9 +402,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
-                platform_generic_path("/root/project/test2/2019_08/2 - ADAVKJYIFV.jpg"),
+                platform_generic_path("/root/project/test2/2019_08/2_201908_p1.jpg"),
                 platform_generic_path(
-                    os.path.join(app.temp_save_path, "test2/2 - ADAVKJYIFV.jpg")
+                    os.path.join(app.temp_save_path, "test2/2_201908_p1.jpg")
                 ),
                 None,
             ),
@@ -436,13 +427,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
+                platform_generic_path("/root/project/test2/2019_08/2_201908_p1.jpg"),
                 platform_generic_path(
-                    "/root/project/test2/2019_08/2 - #home #book - ADAVKJYIFV.jpg"
-                ),
-                platform_generic_path(
-                    os.path.join(
-                        app.temp_save_path, "test2/2 - #home #book - ADAVKJYIFV.jpg"
-                    )
+                    os.path.join(app.temp_save_path, "test2/2_201908_p1.jpg")
                 ),
                 None,
             ),
@@ -464,9 +451,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
-                platform_generic_path("/root/project/test2/0/3 - sample_document.pdf"),
+                platform_generic_path("/root/project/test2/0/3_000000_p1.pdf"),
                 platform_generic_path(
-                    os.path.join(app.temp_save_path, "test2/3 - sample_document.pdf")
+                    os.path.join(app.temp_save_path, "test2/3_000000_p1.pdf")
                 ),
                 "pdf",
             ),
@@ -492,13 +479,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
+                platform_generic_path("/root/project/test2/0/3_000000_p1.pdf"),
                 platform_generic_path(
-                    "/root/project/test2/0/3-#work-sample_document.pdf"
-                ),
-                platform_generic_path(
-                    os.path.join(
-                        app.temp_save_path, "test2/3-#work-sample_document.pdf"
-                    )
+                    os.path.join(app.temp_save_path, "test2/3_000000_p1.pdf")
                 ),
                 "pdf",
             ),
@@ -522,11 +505,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
+                platform_generic_path("/root/project/test2/2021_08/4_202108_p1.mp3"),
                 platform_generic_path(
-                    "/root/project/test2/2021_08/4 - sample_audio.mp3"
-                ),
-                platform_generic_path(
-                    os.path.join(app.temp_save_path, "test2/4 - sample_audio.mp3")
+                    os.path.join(app.temp_save_path, "test2/4_202108_p1.mp3")
                 ),
                 "mp3",
             ),
@@ -548,8 +529,10 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
-                platform_generic_path("/root/project/test2/2022_08/5.mp4"),
-                platform_generic_path(os.path.join(app.temp_save_path, "test2/5.mp4")),
+                platform_generic_path("/root/project/test2/2022_08/5_202208_p1.mp4"),
+                platform_generic_path(
+                    os.path.join(app.temp_save_path, "test2/5_202208_p1.mp4")
+                ),
                 "mp4",
             ),
             result,
@@ -571,9 +554,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
-                platform_generic_path("/root/project/test2/2022_08/5 - test.mp4"),
+                platform_generic_path("/root/project/test2/2022_08/5_202208_p1.mp4"),
                 platform_generic_path(
-                    os.path.join(app.temp_save_path, "test2/5 - test.mp4")
+                    os.path.join(app.temp_save_path, "test2/5_202208_p1.mp4")
                 ),
                 "mp4",
             ),
@@ -597,9 +580,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
 
         self.assertEqual(
             (
-                platform_generic_path("/root/project/-123/2022_08/5 - test.mp4"),
+                platform_generic_path("/root/project/-123/2022_08/5_202208_p1.mp4"),
                 platform_generic_path(
-                    os.path.join(app.temp_save_path, "-123/5 - test.mp4")
+                    os.path.join(app.temp_save_path, "-123/5_202208_p1.mp4")
                 ),
                 "mp4",
             ),
@@ -622,13 +605,11 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
         self.assertEqual(
             (
-                platform_generic_path(
-                    "/root/project/test2/2019_07/6 - video_note_2019-07-25T14_53_50.mp4"
-                ),
+                platform_generic_path("/root/project/test2/2019_07/6_201907_p1.mp4"),
                 platform_generic_path(
                     os.path.join(
                         app.temp_save_path,
-                        "test2/6 - video_note_2019-07-25T14_53_50.mp4",
+                        "test2/6_201907_p1.mp4",
                     )
                 ),
                 "mp4",
@@ -667,7 +648,7 @@ class MediaDownloaderTestCase(unittest.TestCase):
         self.assertEqual(
             (
                 DownloadStatus.SuccessDownload,
-                platform_generic_path("/root/project/-123/0/5 - sample_video.mp4"),
+                platform_generic_path("/root/project/-123/0/5_000000_p1.mp4"),
             ),
             result,
         )
@@ -688,7 +669,7 @@ class MediaDownloaderTestCase(unittest.TestCase):
         self.assertEqual(
             (
                 DownloadStatus.SuccessDownload,
-                platform_generic_path("/root/project/-123/0/6 - sample_video.mov"),
+                platform_generic_path("/root/project/-123/0/6_000000_p1.mov"),
             ),
             result,
         )
@@ -795,7 +776,7 @@ class MediaDownloaderTestCase(unittest.TestCase):
         self.assertEqual(
             (
                 DownloadStatus.SuccessDownload,
-                platform_generic_path("/root/project/-123/0/12 - sample_video.mp4"),
+                platform_generic_path("/root/project/-123/0/12_000000_p1.mp4"),
             ),
             result,
         )
@@ -838,7 +819,7 @@ class MediaDownloaderTestCase(unittest.TestCase):
             id=422,
             media=True,
             video=MockVideo(
-                file_name="422 - exception.mov",
+                file_name="422_000000_p1.mov",
                 mime_type="video/mov",
             ),
         )
@@ -904,7 +885,7 @@ class MediaDownloaderTestCase(unittest.TestCase):
         )
 
         expected_file_path = platform_generic_path(
-            "/root/project/Test Chat/2023_05/123.txt"
+            "/root/project/Test Chat/2023_05/123_202305.txt"
         )
 
         result = self.loop.run_until_complete(save_msg_to_file(app, 456, message))
@@ -913,7 +894,9 @@ class MediaDownloaderTestCase(unittest.TestCase):
         mock_makedirs.assert_called_once_with(
             os.path.dirname(expected_file_path), exist_ok=True
         )
-        mock_open.assert_called_once_with(expected_file_path, "w", encoding="utf-8")
+        mock_open.assert_called_once_with(
+            expected_file_path, "w", encoding="utf-8", newline=""
+        )
         mock_open().write.assert_called_once_with("This is a test message")
 
     @mock.patch("media_downloader.RETRY_TIME_OUT", new=0)
@@ -971,7 +954,7 @@ class MediaDownloaderTestCase(unittest.TestCase):
             res,
             (
                 DownloadStatus.SuccessDownload,
-                platform_generic_path("/root/project/-123/0/312 - sucess_down.mp4"),
+                platform_generic_path("/root/project/-123/0/312_000000_p1.mp4"),
             ),
         )
 
@@ -1088,7 +1071,7 @@ class MediaDownloaderTestCase(unittest.TestCase):
     #     app.chat_download_config[8654123].last_read_message_id = 0
     #     self.loop.run_until_complete(worker(client))
     #     mock_remove.assert_called_with(
-    #         platform_generic_path("/root/project/8654123/0/312 - sucess_down.mp4")
+    #         platform_generic_path("/root/project/8654123/0/312_000000_p1.mp4")
     #     )
 
     @classmethod

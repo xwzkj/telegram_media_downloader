@@ -217,11 +217,11 @@ enable_download_txt: false
   - `rclone_path`，如果配置`upload_adapter`为`rclone`则为必填，`rclone`的可执行目录，查阅 [如何使用rclone](https://github.com/tangyoha/telegram_media_downloader/wiki/Rclone)
   - `before_upload_file_zip` - 上传前压缩文件，默认为`false`
   - `after_upload_file_delete` - 上传成功后删除文件，默认为`false`
-- **file_name_prefix** - 自定义文件名称,使用和 **file_path_prefix** 一样
+- **file_name_prefix** - 保留的旧版文件名配置；下载的媒体和 TXT 使用下方的 ID、年月命名规则，不使用此配置。
   - `message_id` - 消息id
   - `file_name` - 文件名称（可能为空）
   - `caption` - 消息的标题（可能为空）
-- **file_name_prefix_split** - 自定义文件名称分割符号，默认为` - `
+- **file_name_prefix_split** - 旧版文件名称分隔符，默认为` - `，不影响下方的统一命名规则。
 - **max_download_task** - 最大任务下载任务个数，默认为5个。
 - **hide_file_name** - 是否隐藏web界面文件名称，默认`false`
 - **web_host** - web界面地址
@@ -232,9 +232,12 @@ enable_download_txt: false
 - **forward_limit** - 限制每分钟转发次数，默认为33，默认请不要修改该参数
 - **allowed_user_ids** - 允许哪些人使用机器人，默认登录账号可以使用，带@的名称请加单引号
 - **date_format** - 支持自定义配置file_path_prefix中media_datetime的格式，具体格式查看 [python-datetime](https://docs.python.org/zh-cn/3/library/time.html)
-- **enable_download_txt** 启用下载txt文件，默认`false`
+- **enable_download_txt** 启用独立纯文本消息的 TXT 下载，默认 `false`。媒体组的 TXT 始终保存，不受此开关影响。
 
 ## 执行
+
+Windows 用户可直接双击项目根目录的 `start.bat` 启动，脚本使用 `.venv` 中的 Python。
+需要从头扫描时，先关闭下载器，再双击 `clear_download_history.bat`，输入小写 `y` 并回车才会清除下载进度和重试记录；其他输入均取消。清除前会将原始记录备份到 `temp/history-reset-backup-*`，聊天子目录等设置、已下载媒体和登录状态都会保留。已存在的同名媒体仍会跳过。
 
 ```sh
 python3 media_downloader.py
@@ -253,6 +256,21 @@ file_path_prefix:
 视频下载完整目录为：`save_path`/`chat_title`/`media_datetime`/`media_type`。
 列表的顺序不定，可以随机组合。
 如果配置为空，则所有文件保存在`save_path`下。
+
+### 文件命名、扁平存储与文本保存
+
+媒体文件使用 `[id]_[年月]_p[n].扩展名` 命名，年月固定为 `YYYYMM`，不受 `date_format` 影响。同一个 Telegram 媒体组（相册）统一使用组内最小消息 ID 及该条消息的年月，按消息 ID 升序追加 `_p1`、`_p2` 等序号，并保留原扩展名。例如，首条消息 ID 为 `12345`、日期为 2026 年 9 月的媒体组保存为 `12345_202609_p1.mp4`、`12345_202609_p2.jpg`、`12345_202609_p3.png` 和 `12345_202609.txt`，TXT 不追加 `_p` 序号。独立媒体使用自身 ID 和年月，序号固定为 `_p1`；独立纯文本消息保存为 `[id]_[年月].txt`，仍由 `enable_download_txt` 控制。接口未返回日期时，年月使用 `000000`。
+
+在 `config.yaml` 中设置以下配置，保留聊天子目录，媒体与 TXT 平铺保存在 `save_path/聊天名称/` 下，不再生成日期或类型子目录：
+
+```yaml
+file_path_prefix:
+  - chat_title
+```
+
+下载媒体组时会自动生成 UTF-8 编码的同名 TXT，即使 `enable_download_txt` 为 `false` 也会保存。TXT 按消息 ID 顺序收集组内所有消息的 `caption` 和 `text`，各段之间用换行分隔。标签、纯文本、代码块文字、空格和原有换行均按接口返回的原文保留，不做清理或转义；没有文字的媒体组会生成空 TXT。
+
+如果保留非空 `file_path_prefix`，仍按该配置生成子目录，其中 `media_datetime` 使用组内最小消息 ID 对应的日期。如果配置包含 `media_type`，TXT 保存在 `msg` 目录；否则 TXT 与媒体位于同一目录。只收集接口中归属同一媒体组的内容，不自动合并相邻的独立消息。旧命名方式保存的文件不会自动重命名或迁移。
 
 ## 代理
 

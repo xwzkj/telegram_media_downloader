@@ -9,6 +9,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from pyrogram import raw
+from pyrogram.utils import get_channel_id
+
 import module.web as web
 from module.app import Application, TaskNode
 from module.web_state import WebState
@@ -16,7 +19,8 @@ from tests.test_common import MockMessage
 
 
 CHAT = -100123456
-DISCUSSION = -100987654
+GROUP_CHANNEL = 3743604771
+DISCUSSION = get_channel_id(GROUP_CHANNEL)
 
 
 def message(message_id, chat_id=CHAT, text=None):
@@ -33,9 +37,32 @@ class TelegramFixture:
     def __init__(self):
         self.messages = {i: message(i) for i in range(1, 8)}
         self.history_calls = []
+        self.discussion_requests = []
+        self.reply_requests = []
+        # post id -> discussion copies as (root id, reply count or None)
+        self.discussion_copies = {}
+        self.fetch_peers = AsyncMock(return_value=False)
+        self.resolve_peer = AsyncMock(side_effect=lambda chat_id: chat_id)
+        self.invoke = AsyncMock(side_effect=self.handle_invoke)
         self.get_messages = AsyncMock(side_effect=self.fetch)
         self.get_chat = AsyncMock(return_value=SimpleNamespace(id=CHAT, title="Test channel"))
-        self.get_discussion_message = AsyncMock(return_value=message(99, DISCUSSION))
+
+    async def handle_invoke(self, request):
+        if isinstance(request, raw.functions.messages.GetDiscussionMessage):
+            self.discussion_requests.append(request.msg_id)
+            copies = self.discussion_copies.get(request.msg_id, [(99, 2)])
+            group = SimpleNamespace(id=GROUP_CHANNEL, access_hash=7, megagroup=True)
+            return SimpleNamespace(
+                messages=[
+                    SimpleNamespace(
+                        id=root_id,
+                        replies=None if count is None else SimpleNamespace(replies=count),
+                    )
+                    for root_id, count in copies
+                ],
+                chats=[group], users=[],
+            )
+        raise AssertionError(f"unexpected request {request!r}")
 
     async def fetch(self, chat_id, message_ids):
         return self.messages[message_ids]
@@ -48,6 +75,7 @@ class TelegramFixture:
             yield item
 
     async def get_discussion_replies(self, chat_id, message_id, limit=0):
+        self.reply_requests.append((chat_id, message_id))
         yield message(5, DISCUSSION, "评论完整原文")
 
 
@@ -55,7 +83,11 @@ class WebFlowTestCase(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.previous_loop = asyncio.get_event_loop()
+        try:
+            self.previous_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # Earlier test modules may have detached the loop from this thread.
+            self.previous_loop = None
         state = WebState(str(Path(self.temp.name) / "state.sqlite3"))
         with patch("module.app.WebState", return_value=state):
             self.app = Application("unused.yaml", "unused-data.yaml")
@@ -201,6 +233,15 @@ class WebFlowTestCase(unittest.TestCase):
         self.assertEqual(2, self.submit(result)["queued"])
         self.assertEqual([CHAT, DISCUSSION], [node.chat_id for _, node in self.queued])
 
+    def test_album_thread_root_skips_copy_without_replies(self):
+        # Telegram returns one copy per album item, newest first, and only the
+        # copy holding the thread answers messages.GetReplies.
+        self.telegram.discussion_copies[5] = [(10193, None), (10192, 3)]
+        self.start()
+        result = self.preview(include_comments=True)
+        self.assertEqual([CHAT, DISCUSSION], [item["chat_id"] for item in result["messages"]])
+        self.assertEqual([(DISCUSSION, 10192)], self.telegram.reply_requests)
+
     def test_album_comment_filename_origin_uses_first_post_message(self):
         self.telegram.messages[5].media_group_id = "source-album"
         self.telegram.messages[2].media_group_id = "source-album"
@@ -215,6 +256,7 @@ class WebFlowTestCase(unittest.TestCase):
         self.assertEqual(DISCUSSION, node.chat_id)
         self.assertEqual(2, node.comment_source.id)
         self.assertEqual(CHAT, node.comment_source.chat.id)
+        self.assertEqual([2], self.telegram.discussion_requests)
 
     def test_blacklist_rechecked_after_preview(self):
         self.start()
@@ -234,7 +276,7 @@ class WebFlowTestCase(unittest.TestCase):
         self.start()
         result = self.preview(categories=[])
         self.assertFalse(result["messages"][0]["selected"])
-        self.telegram.get_discussion_message.side_effect = RuntimeError("no comments access")
+        self.telegram.invoke.side_effect = RuntimeError("no comments access")
         result = self.preview(include_comments=True)
         self.assertEqual(1, len(result["messages"]))
         self.assertTrue(result.get("warnings") or result.get("warning"))
@@ -318,7 +360,7 @@ class WebFlowTestCase(unittest.TestCase):
             json={"chat_id": str(DISCUSSION), "message_id": 5},
         )
         self.assertEqual(200, response.status_code, response.get_json())
-        self.telegram.get_discussion_message.assert_awaited_with(CHAT, 5)
+        self.assertEqual([5], self.telegram.discussion_requests)
         msg, node = self.queued[-1]
         self.assertEqual(DISCUSSION, msg.chat.id)
         self.assertEqual(CHAT, node.comment_source.chat.id)

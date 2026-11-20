@@ -179,7 +179,9 @@ def get_extension(file_id: str, mime_type: str, dot: bool = True) -> str:
 
     file_type = _get_file_type(file_id)
 
-    guessed_extension = _guess_extension(mime_type)
+    # mimetypes.guess_extension() already returns a leading dot (".mp4"), while
+    # the fallbacks below are bare names, so normalize before adding our own dot.
+    guessed_extension = (_guess_extension(mime_type) or "").lstrip(".")
 
     if file_type in PHOTO_TYPES:
         extension = "jpg"

@@ -353,6 +353,40 @@ def _store_preview(app, chat_id, messages, categories=None, configured_chat_id=N
     return {"preview_id": preview_id, "chat_id": chat_id, "messages": previews}
 
 
+async def _discussion_root(client, chat_id, message_id):
+    """Resolve a post's comment section to (discussion chat id, thread root id).
+
+    Telegram stores one copy of the post per album item in the linked discussion
+    group and messages.GetDiscussionMessage lists those copies newest first, so
+    the first entry can be an extra album copy that owns no reply thread;
+    messages.GetReplies rejects such an id with MSG_ID_INVALID. The copy that
+    really owns the thread is the one carrying MessageReplies metadata, so rank
+    it first and fall back to the earliest copy (the post itself) otherwise.
+    """
+    from pyrogram import raw, utils as pyrogram_utils
+
+    response = await client.invoke(
+        raw.functions.messages.GetDiscussionMessage(
+            peer=await client.resolve_peer(chat_id), msg_id=message_id
+        )
+    )
+    group = next(
+        (item for item in response.chats if getattr(item, "megagroup", False)), None
+    )
+    if group is None or not response.messages:
+        return None, None
+    # A private discussion group is only resolvable once its access hash is cached.
+    await client.fetch_peers([group])
+
+    def rank(item):
+        replies = getattr(item, "replies", None)
+        if replies is None:
+            return (0, -item.id)
+        return (1, getattr(replies, "replies", 0) or 0)
+
+    return pyrogram_utils.get_channel_id(group.id), max(response.messages, key=rank).id
+
+
 async def _append_comments(client, messages, warnings, limit=1000):
     remaining = limit
     processed = set()
@@ -381,11 +415,17 @@ async def _append_comments(client, messages, warnings, limit=1000):
             except Exception as error:
                 warnings.append(f"原帖相册 {message.id} 无法完整解析: {error}")
         try:
-            root = await client.get_discussion_message(chat_id, message.id)
-            if root is None:
-                warnings.append(f"消息 {message.id} 没有可访问的评论区")
-                continue
-            async for reply in client.get_discussion_replies(root.chat.id, root.id, limit=remaining):
+            discussion_chat_id, root_id = await _discussion_root(
+                client, chat_id, source.id
+            )
+        except Exception as error:
+            warnings.append(f"消息 {message.id} 的评论不可用: {error}")
+            continue
+        if root_id is None:
+            warnings.append(f"消息 {message.id} 没有可访问的评论区")
+            continue
+        try:
+            async for reply in client.get_discussion_replies(discussion_chat_id, root_id, limit=remaining):
                 messages.append((reply, True, reply.chat.id, source))
                 remaining -= 1
                 if remaining <= 0:
@@ -830,12 +870,14 @@ def manage_download(action):
                     origin = await client.get_messages(source_chat.id, origin_message_id)
                     if not origin or getattr(origin, "empty", False):
                         raise ValueError("无法重新获取原帖，不能恢复评论文件关联")
-                    discussion = await client.get_discussion_message(source_chat.id, origin_message_id)
-                    if not discussion:
+                    discussion_chat_id, root_id = await _discussion_root(
+                        client, source_chat.id, origin_message_id
+                    )
+                    if root_id is None:
                         raise ValueError("无法打开原帖评论区，请确认账号仍有访问权限")
                     fetched = None
                     async for reply in client.get_discussion_replies(
-                        discussion.chat.id, discussion.id, limit=1000
+                        discussion_chat_id, root_id, limit=1000
                     ):
                         if reply.id == message_id and str(reply.chat.id) == str(chat_id):
                             fetched = reply

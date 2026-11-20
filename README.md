@@ -170,7 +170,6 @@ file_formats:
 save_path: D:\telegram_media_downloader
 file_path_prefix:
 - chat_title
-- media_datetime
 upload_drive:
   # required
   enable_upload_file: true
@@ -211,7 +210,7 @@ enable_download_txt: false
 - **media_types** - Type of media to download, you can update which type of media you want to download it can be one or any of the available types.
 - **file_formats** - File types to download for supported media types which are `audio`, `document` and `video`. Default format is `all`, downloads all files.
 - **save_path** - The root directory where you want to store downloaded files.
-- **file_path_prefix** - Store file subfolders, the order of the list is not fixed, can be randomly combined.
+- **file_path_prefix** - Store file subfolders, the order of the list is not fixed, can be randomly combined. Defaults to `[chat_title]`: one folder per chat with every file flat inside it (the year/month is already part of the file name); add the entries below for extra nesting.
   - `chat_title`      - Channel or group title, it will be chat id if not exist title.
   - `media_datetime`  - Media date.
   - `media_type`      - Media type, also see `media_types`.

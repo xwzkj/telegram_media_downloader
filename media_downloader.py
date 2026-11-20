@@ -332,15 +332,19 @@ def _save_media_text(
     node: Optional[TaskNode] = None, path_message=None,
 ) -> str:
     """Save all media captions and text verbatim, separated by newlines."""
-    first = path_message or messages[0]
-    file_save_path, _, prefix = _media_output_location(app, chat_id, first, "msg", node)
-    file_name = os.path.join(file_save_path, f"{prefix}{_get_media_file_stem(first)}.txt")
     text_parts = [
         value
         for message in messages
         for value in (message.caption, message.text)
         if value is not None and value != ""
     ]
+    if not text_parts:
+        # Media without any caption or text must not leave an empty .txt behind.
+        return ""
+
+    first = path_message or messages[0]
+    file_save_path, _, prefix = _media_output_location(app, chat_id, first, "msg", node)
+    file_name = os.path.join(file_save_path, f"{prefix}{_get_media_file_stem(first)}.txt")
 
     os.makedirs(file_save_path, exist_ok=True)
     with open(file_name, "w", encoding="utf-8", newline="") as text_file:
@@ -859,6 +863,13 @@ def main():
     """Run the web UI; Telegram and downloads remain stopped until requested."""
     try:
         app.pre_run()
+        # config.yaml still owns the storage layout (file_path_prefix, date_format,
+        # file_name_prefix) that the Web UI does not expose; the settings stored by
+        # the Web UI override the runtime values afterwards.
+        try:
+            app.load_config()
+        except Exception as error:  # pylint: disable = W0703
+            logger.warning("config.yaml not loaded: {}", error)
         from module.web import configure_web_runtime
 
         configure_web_runtime(

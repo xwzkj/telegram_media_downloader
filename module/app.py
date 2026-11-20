@@ -391,7 +391,9 @@ class Application:
         self.restart_program = False
         self.config: dict = {}
         self.app_data: dict = {}
-        self.file_path_prefix: List[str] = ["chat_title", "media_datetime"]
+        # One folder per chat with every file flat inside it; the year/month is
+        # already part of the generated file name, so no date directory by default.
+        self.file_path_prefix: List[str] = ["chat_title"]
         self.file_name_prefix: List[str] = ["message_id", "file_name"]
         self.file_name_prefix_split: str = " - "
         self.log_file_path = os.path.join(os.path.abspath("."), "log")

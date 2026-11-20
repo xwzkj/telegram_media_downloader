@@ -172,7 +172,6 @@ file_formats:
 save_path: D:\telegram_media_downloader
 file_path_prefix:
 - chat_title
-- media_datetime
 upload_drive:
   enable_upload_file: true
   remote_dir: drive:/telegram
@@ -206,7 +205,7 @@ enable_download_txt: false
 - **media_types** - 要下载的媒体类型，您可以更新要下载的媒体类型，它可以是一种或任何可用类型。
 - **file_formats** - 为支持的媒体类型（“音频”、“文档”和“视频”）下载的文件类型。默认格式为“all”，下载所有文件。
 - **save_path** - 你想存储下载文件的根目录
-- **file_path_prefix** - 存储文件子文件夹，列表的顺序不定，可以随机组合
+- **file_path_prefix** - 存储文件子文件夹，列表的顺序不定，可以随机组合。默认 `[chat_title]`：每个会话一个子文件夹，所有文件平铺在里面（年月已包含在文件名中）；需要额外分层时再加入下面的项。
   - `chat_title`      - 聊天频道或者群组标题, 如果找不到标题则为配置文件中的`chat_id`
   - `media_datetime`  - 资源的发布时间
   - `media_type`      - 资源类型，类型查阅 `media_types`

@@ -71,6 +71,20 @@ class AppTestCase(unittest.TestCase):
         mock_open.assert_called_with("data_test.yaml", "w", encoding="utf-8")
         self.assertEqual(mock_yaml.dump.call_count, 2)
 
+    def test_default_storage_is_one_flat_folder_per_chat(self):
+        app = Application("", "")
+        try:
+            # The year/month already lives in the generated file name, so the
+            # default layout must not add a date directory below the chat folder.
+            self.assertEqual(["chat_title"], app.file_path_prefix)
+            self.assertEqual(
+                os.path.join(app.save_path, "Test Chat"),
+                app.get_file_save_path("video", "Test Chat", "2026_09"),
+            )
+        finally:
+            app.loop.close()
+            app.executor.shutdown(wait=False)
+
     def test_empty_path_prefix_enables_flat_storage_and_persists(self):
         app = Application("", "")
         try:

@@ -277,11 +277,15 @@ class MediaGroupTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(expected.encode("utf-8"), file_path.read_bytes())
         self.assertEqual([file_path], list((self.root / "downloads").rglob("*.txt")))
 
-    async def test_album_without_text_still_has_empty_sidecar(self):
-        downloader._save_media_text(
-            CHAT_ID, [album_message(100, caption=None, text=""), album_message(110)]
+    async def test_album_without_text_creates_no_sidecar(self):
+        # Nothing to export means no empty .txt next to the media.
+        self.assertEqual(
+            "",
+            downloader._save_media_text(
+                CHAT_ID, [album_message(100, caption=None, text=""), album_message(110)]
+            ),
         )
-        self.assertEqual(b"", self.saved_path("100_202608.txt").read_bytes())
+        self.assertFalse(self.saved_path("100_202608.txt").exists())
 
     async def test_text_path_uses_chat_id_when_title_is_missing(self):
         downloader._save_media_text(

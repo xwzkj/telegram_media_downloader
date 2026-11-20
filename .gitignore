@@ -10,6 +10,9 @@
 .coverage
 settings.json
 
+config.yaml
+data.yaml
+
 # Distribution / packaging
 .Python
 .pytest_cache

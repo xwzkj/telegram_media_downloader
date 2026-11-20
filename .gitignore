@@ -68,5 +68,6 @@ log/
 temp/
 config.yaml
 data.yaml
+web_state.sqlite3
 *.scss
 *.css.map

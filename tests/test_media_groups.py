@@ -269,7 +269,7 @@ class MediaGroupTestCase(unittest.IsolatedAsyncioTestCase):
             album_message(205, caption="", text=None),
             album_message(240, text="最后一行\r"),
         ]
-        downloader._save_media_group_text(CHAT_ID, messages)
+        downloader._save_media_text(CHAT_ID, messages)
         expected = "\n".join(
             [caption, text, caption, long_caption, " \t\r\n", "最后一行\r"]
         )
@@ -278,13 +278,13 @@ class MediaGroupTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([file_path], list((self.root / "downloads").rglob("*.txt")))
 
     async def test_album_without_text_still_has_empty_sidecar(self):
-        downloader._save_media_group_text(
+        downloader._save_media_text(
             CHAT_ID, [album_message(100, caption=None, text=""), album_message(110)]
         )
         self.assertEqual(b"", self.saved_path("100_202608.txt").read_bytes())
 
     async def test_text_path_uses_chat_id_when_title_is_missing(self):
-        downloader._save_media_group_text(
+        downloader._save_media_text(
             CHAT_ID, [album_message(100, chat_title=None, caption="#tag")]
         )
         self.assertEqual(
@@ -424,7 +424,57 @@ class MediaGroupTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.saved_path("100_202608_p1.mp4", "video"), Path(file_name))
         self.assertEqual("100_202608_p1.mp4", os.path.basename(temp_name))
         self.assertEqual("mp4", file_format)
-        self.assertEqual([], list(self.root.rglob("*.txt")))
+
+    async def test_single_media_download_saves_caption_and_text_sidecar(self):
+        message = album_message(
+            100,
+            media_group_id=None,
+            video=MockVideo(
+                file_name="original.mp4", mime_type="video/mp4", file_size=5
+            ),
+            caption="【标题】\n#标签 <tag> & literal **text**",
+            text="普通文字\r\n代码：\n    a < b && c > d",
+        )
+
+        async def transfer(_, file_name, **__):
+            path = Path(file_name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"media")
+            return str(path)
+
+        self.client.download_media.side_effect = transfer
+        with patch.object(downloader, "fetch_message", new=AsyncMock(return_value=message)):
+            status, _ = await downloader.download_media(
+                self.client, message, ["video"], {"video": ["all"]}, self.node
+            )
+
+        self.assertEqual(DownloadStatus.SuccessDownload, status)
+        self.assertEqual(
+            "【标题】\n#标签 <tag> & literal **text**\n普通文字\r\n代码：\n    a < b && c > d".encode(
+                "utf-8"
+            ),
+            self.saved_path("100_202608.txt").read_bytes(),
+        )
+
+    async def test_comment_album_and_text_use_source_directory_and_prefix(self):
+        source = album_message(100, media_group_id=None)
+        comment_album = [
+            album_message(700, chat_id=-100222, chat_title="Discussion", caption="comment"),
+            album_message(704, chat_id=-100222, chat_title="Discussion"),
+        ]
+        self.node.comment_source = source
+        file_name, temp_name, _ = await downloader._get_media_meta(
+            -100222, comment_album[1], comment_album[1].video, "video",
+            media_group=comment_album, node=self.node,
+        )
+        text_name = downloader._save_media_text(
+            -100222, comment_album, self.node, path_message=comment_album[0],
+        )
+        expected_dir = self.saved_path("unused", "video").parent
+        self.assertEqual(expected_dir / "100_202608_comment_700_202609_p2.mp4", Path(file_name))
+        self.assertEqual(expected_dir / "100_202608_comment_700_202609.txt", Path(text_name))
+        self.assertEqual("100_202608_comment_700_202609_p2.mp4", Path(temp_name).name)
+        self.assertEqual("comment", Path(text_name).read_text(encoding="utf-8"))
 
     async def test_missing_date_uses_stable_placeholder_for_media_and_text(self):
         messages = [album_message(100, date=None, caption="#tag"), album_message(110)]
@@ -432,7 +482,7 @@ class MediaGroupTestCase(unittest.IsolatedAsyncioTestCase):
             file_name, temp_name, _ = await downloader._get_media_meta(
                 CHAT_ID, messages[1], messages[1].video, "video", media_group=messages
             )
-            text_name = downloader._save_media_group_text(CHAT_ID, messages)
+            text_name = downloader._save_media_text(CHAT_ID, messages)
         self.assertEqual(self.root / "downloads" / "100_000000_p2.mp4", Path(file_name))
         self.assertEqual("100_000000_p2.mp4", os.path.basename(temp_name))
         self.assertEqual(self.root / "downloads" / "100_000000.txt", Path(text_name))

@@ -17,6 +17,7 @@ from ruamel import yaml
 from module.cloud_drive import CloudDrive, CloudDriveConfig
 from module.filter import Filter
 from module.language import Language, set_language
+from module.web_state import WebState
 from utils.format import replace_date_time, validate_title
 from utils.meta_data import MetaData
 
@@ -177,6 +178,7 @@ class TaskNode:
         self.upload_stat_dict: dict = {}
         self.topic_id = topic_id
         self.reply_to_message = None
+        self.save_text_messages = False
         self.cloud_drive_upload_stat_dict: dict = {}
 
     def skip_msg_id(self, msg_id: int):
@@ -370,6 +372,7 @@ class Application:
         self.app_data_file: str = app_data_file
         self.application_name: str = application_name
         self.download_filter = Filter()
+        self.web_state = WebState()
         self.is_running = True
 
         self.total_download_task = 0
@@ -398,7 +401,7 @@ class Application:
         self.caption_name_dict: dict = {}
         self.caption_entities_dict: dict = {}
         self.max_concurrent_transmissions: int = 1
-        self.web_host: str = "0.0.0.0"
+        self.web_host: str = "127.0.0.1"
         self.web_port: int = 5000
         self.max_download_task: int = 5
         self.language = Language.EN

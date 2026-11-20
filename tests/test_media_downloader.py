@@ -978,44 +978,33 @@ class MediaDownloaderTestCase(unittest.TestCase):
 
         self.assertEqual(res, (DownloadStatus.SkipDownload, None))
 
-    @mock.patch("media_downloader.HookClient", new=MockClient)
-    @mock.patch("media_downloader.RETRY_TIME_OUT", new=1)
+    @mock.patch("media_downloader.HookClient", new=mock.Mock(side_effect=AssertionError("Telegram must remain stopped")))
+    @mock.patch("media_downloader.init_web")
     @mock.patch("media_downloader.logger")
-    def test_main_with_bot(self, mock_logger):
+    def test_main_starts_web_without_starting_telegram_or_downloading(self, mock_logger, mock_init_web):
         rest_app(MOCK_CONF)
-
-        main()
-
-        mock_logger.success.assert_called_with(
-            "Updated last read message_id to config file,total download 0, total upload file 0"
-        )
+        with mock.patch.object(app.loop, "run_forever"), mock.patch.object(
+            app.loop, "run_until_complete", side_effect=lambda coroutine: coroutine.close()
+        ), mock.patch.object(app.loop, "close"):
+            main()
+        mock_init_web.assert_called_once_with(app)
+        mock_logger.info.assert_any_call("Web UI ready; Telegram client is stopped")
 
     @mock.patch("media_downloader.app.pre_run", new=raise_keyboard_interrupt)
-    @mock.patch("media_downloader.HookClient", new=MockClient)
-    @mock.patch("media_downloader.RETRY_TIME_OUT", new=1)
     @mock.patch("media_downloader.logger")
     def test_keyboard_interrupt(self, mock_logger):
         rest_app(MOCK_CONF)
-
-        main()
-
+        with mock.patch.object(app.loop, "close"):
+            main()
         mock_logger.info.assert_any_call("KeyboardInterrupt")
-        mock_logger.success.assert_called_with(
-            "Updated last read message_id to config file,total download 0, total upload file 0"
-        )
 
     @mock.patch("media_downloader.app.pre_run", new=raise_exception)
-    @mock.patch("media_downloader.HookClient", new=MockClient)
-    @mock.patch("media_downloader.RETRY_TIME_OUT", new=1)
     @mock.patch("media_downloader.logger")
     def test_other_exception(self, mock_logger):
         rest_app(MOCK_CONF)
-
-        main()
-
-        mock_logger.success.assert_called_with(
-            "Updated last read message_id to config file,total download 0, total upload file 0"
-        )
+        with mock.patch.object(app.loop, "close"):
+            main()
+        mock_logger.exception.assert_called()
 
     @mock.patch("media_downloader._load_config", new=load_config)
     @mock.patch("media_downloader.logger")

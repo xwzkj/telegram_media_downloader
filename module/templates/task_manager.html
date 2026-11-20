@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>下载管理</title><link href="/static/layui/css/layui.css" rel="stylesheet">
+  <style>
+    :root{color-scheme:light;--ink:#202a32;--muted:#68747d;--line:#d7dedf;--surface:#f4f7f6;--white:#fff;--accent:#087e76;--accent-dark:#075e59;--gold:#d08b27;--danger:#b6463d}
+    *{box-sizing:border-box}body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.5 system-ui,sans-serif}header{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#fff;border-bottom:1px solid var(--line)}header strong{font-size:16px}header a{color:var(--accent);text-decoration:none}main{max-width:1240px;margin:auto;padding:16px 18px 40px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.nav{display:flex;gap:4px;overflow:auto;border-bottom:1px solid var(--line)}.nav button{border:0;border-radius:0;background:transparent;color:var(--muted);white-space:nowrap}.nav button.active{color:var(--accent-dark);box-shadow:inset 0 -2px var(--accent);font-weight:650}.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}.dot{width:8px;height:8px;border-radius:50%;background:#9aa4a7}.dot.on{background:var(--accent)}.view{display:none;padding-top:18px}.view.active{display:block}.grid{display:grid;grid-template-columns:minmax(230px,310px) minmax(0,1fr);gap:28px;align-items:start}h2{font-size:15px;margin:0 0 9px;font-weight:650}.hint{font-size:12px;color:var(--muted);margin:0 0 12px}label.field{display:block;color:var(--muted);font-size:12px;margin:10px 0 5px}input:not([type=checkbox]),textarea,select{width:100%;border:1px solid var(--line);border-radius:4px;background:white;padding:8px 9px;color:var(--ink);font:inherit}input:focus,textarea:focus,select:focus{outline:2px solid #087e7633;border-color:var(--accent)}textarea{min-height:100px;resize:vertical}#links{min-height:116px;font-family:ui-monospace,Consolas,monospace}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}button{min-height:34px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink);font:inherit;cursor:pointer}button:hover{border-color:var(--accent);color:var(--accent-dark)}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}button.primary:hover{background:var(--accent-dark)}button.danger{color:var(--danger)}button:disabled{opacity:.5;cursor:wait}.check{display:inline-flex;align-items:center;gap:7px;color:var(--ink);font-size:13px}.check input{margin:0;accent-color:var(--accent)}#chat-list{display:grid;gap:12px}.chat-row{padding-bottom:12px;border-bottom:1px solid var(--line)}.chat-head{display:flex;justify-content:space-between;align-items:center}.chat-head strong{font-size:13px}.remove-chat{min-height:26px;padding:2px 8px}.result-list{display:grid;gap:16px;margin-top:16px}.link-result{border-top:1px solid var(--line);padding-top:11px}.link-title{overflow-wrap:anywhere;color:var(--muted);font-size:12px;margin-bottom:6px}.message{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;padding:9px 0;border-top:1px solid #e5e9e9}.message>input{margin:4px 0 0;accent-color:var(--accent)}.meta{display:flex;gap:9px;align-items:center;color:var(--muted);font-size:11px;margin-bottom:4px}.kind{font-weight:650;color:var(--accent-dark)}.comment{color:#875413}.placeholder{display:inline-flex;min-width:90px;min-height:38px;align-items:center;justify-content:center;margin:2px 0 6px;border:1px dashed #9daead;background:#eef3f1;color:#526461;font-size:11px}.text{white-space:pre-wrap;overflow-wrap:anywhere}.notice{min-height:20px;color:var(--muted);font-size:12px;margin-top:8px}.error{color:var(--danger)}.sticky{position:sticky;bottom:0;background:linear-gradient(transparent,var(--surface) 20%);padding:10px 0}.scroll-table{overflow:auto}table{width:100%;border-collapse:collapse;background:#fff}th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}td{font-size:13px;overflow-wrap:anywhere}.empty{padding:20px;color:var(--muted);text-align:center}.row-actions{display:flex;gap:6px;white-space:nowrap}.row-actions button{min-height:28px;padding:2px 8px}.format-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:4px}.format-row .check{min-width:84px}@media(max-width:760px){header{padding:0 14px}main{padding:12px 12px 30px}.topbar{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr;gap:25px}.settings-side{border-bottom:1px solid var(--line);padding-bottom:15px}.form-grid{grid-template-columns:1fr}.nav{margin:0 -12px;padding:0 12px}.message{grid-template-columns:20px minmax(0,1fr)}}
+    .download-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0}.download-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:14px 0}.download-tabs button{display:flex;align-items:center;gap:7px;min-height:32px;padding:5px 10px;background:transparent;color:var(--muted)}.download-tabs button.active{background:#e1f1ed;border-color:var(--accent);color:var(--accent-dark);font-weight:650}.download-tabs .count{font-size:11px;min-width:18px;padding:0 4px;border-radius:8px;background:#e8edeb;font-weight:400}.download-tabs button.active .count{background:#c8e6df}.download-control-state{font-size:12px;color:var(--muted)}.download-control-state.paused{color:var(--gold)}.row-actions{display:flex;align-items:center;flex-wrap:wrap;gap:4px;min-width:130px}.row-actions button,button.quiet{min-height:27px;padding:3px 7px;font-size:12px}.row-actions .retry{color:var(--accent-dark)}button.quiet{background:transparent;border-color:transparent;color:var(--muted)}button.quiet:hover{background:#edf1ef;border-color:var(--line);color:var(--ink)}#view-history table{min-width:1120px}#view-history td{vertical-align:top}#view-history .download-title,#view-history .download-file{min-width:150px;max-width:260px;overflow-wrap:anywhere;white-space:normal}.download-state{white-space:nowrap;color:var(--muted)}.download-state.downloading{color:var(--accent-dark)}.download-state.completed{color:var(--accent)}.download-state.failed{color:var(--danger)}.download-progress{min-width:110px;white-space:nowrap}.download-progress progress{display:block;width:100%;height:7px;margin-top:5px;accent-color:var(--accent)}.download-bytes,.download-speed,.download-time{white-space:nowrap}
+  </style>
+</head>
+<body>
+  <header><strong>下载管理</strong><a id="download-status-link" href="#downloads">下载状态</a></header>
+  <main>
+    <div class="topbar"><nav class="nav" aria-label="下载管理"><button class="active" data-view="settings">设置</button><button data-view="tasks">任务与预览</button><button data-view="history">下载管理</button><button data-view="blacklist">黑名单</button></nav><div class="status"><span id="status-dot" class="dot"></span><span id="runtime-status">Telegram 未启动</span><button id="runtime-toggle" class="primary">启动 Telegram</button></div></div>
+    <section id="view-settings" class="view active">
+      <div class="grid"><div class="settings-side">
+        <h2>Telegram 连接</h2><p class="hint">仅在点击启动后建立账号会话。旧 YAML 配置不会导入或写回。</p>
+        <label class="field" for="api-id">API ID</label><input id="api-id" inputmode="numeric">
+        <label class="field" for="api-hash">API Hash</label><input id="api-hash" type="password" autocomplete="off">
+        <label class="field" for="bot-token">Bot Token（可选）</label><input id="bot-token" type="password" autocomplete="off">
+        <label class="field" for="save-path">保存目录</label><input id="save-path" placeholder="downloads">
+        <div class="form-grid"><div><label class="field" for="workers">并发下载数</label><input id="workers" type="number" min="1" max="16" value="3"></div><div><label class="field" for="proxy">代理 URL（可选）</label><input id="proxy" placeholder="socks5://127.0.0.1:1080"></div></div>
+        <label class="field" for="web-secret">Web 登录密码（留空保持当前设置）</label><input id="web-secret" type="password" autocomplete="new-password"><label class="check" style="margin-top:8px"><input id="clear-web-secret" type="checkbox">移除 Web 登录密码</label>
+        <div class="actions"><button id="save-runtime" class="primary">保存设置</button></div>
+        <div id="telegram-auth" hidden><label class="field" for="phone">手机号（含国家区号）</label><input id="phone" placeholder="+86..."><div class="actions"><button id="send-code" class="primary">发送验证码</button></div><label class="field" for="telegram-code">Telegram 验证码</label><input id="telegram-code" autocomplete="one-time-code"><label class="field" for="telegram-password">两步验证密码（如已启用）</label><input id="telegram-password" type="password" autocomplete="current-password"><div class="actions"><button id="sign-in" class="primary">验证并继续</button></div></div>
+        <div id="settings-notice" class="notice"></div>
+      </div><div>
+        <h2>媒体与保存选项</h2><p class="hint">选择允许下载的媒体类型和格式。</p>
+        <label class="field">媒体类型</label><div id="media-types" class="format-row"></div>
+        <label class="field" for="formats">文件格式</label><p class="hint">每类用逗号分隔扩展名，填写 all 表示不限格式。</p>
+        <div class="form-grid"><div><label class="field">音频</label><input id="format-audio" value="all"></div><div><label class="field">文档</label><input id="format-document" value="all"></div><div><label class="field">视频</label><input id="format-video" value="all"></div></div>
+        <h2 style="margin-top:24px">Chat 与过滤</h2><p class="hint">勾选需要预览的 Chat，设置读取范围后保存并预览，再到任务页选择下载。预览使用当前勾选的全局媒体类型，并包含文字；不会自动下载。</p><div id="chat-list"></div>
+        <div class="actions"><button id="add-chat">添加 Chat</button><button id="save-chats" class="primary">保存 Chat 设置</button><button id="preview-chats" class="primary" disabled>保存并预览全部 Chat</button></div><div id="chat-notice" class="notice" role="status"></div>
+      </div></div>
+    </section>
+    <section id="view-tasks" class="view">
+      <h2>预览并创建下载任务</h2><p class="hint">每行一条消息链接。启动 Telegram 后再预览；频道评论需要频道关联讨论组且当前账号有访问权限。</p>
+      <textarea id="links" placeholder="https://t.me/channel/123&#10;https://t.me/c/123456789/456"></textarea>
+      <div class="actions"><label class="check"><input id="include-comments" type="checkbox">包含评论区</label><button id="preview" class="primary">预览内容</button><button id="select-all" disabled>全选</button><button id="select-none" disabled>全不选</button><button id="run-selected" class="primary" disabled>开始下载所选</button><button id="block-selected" class="quiet" disabled>屏蔽所选</button></div>
+      <div id="preview-filters" class="format-row" style="margin-top:10px"></div>
+      <div id="task-notice" class="notice"></div><div id="results" class="result-list"></div>
+    </section>
+    <section id="view-history" class="view">
+      <h2>下载管理</h2><p class="hint">排队、下载进度与历史结果统一显示；当前页面每 2 秒自动刷新。</p>
+      <div class="download-toolbar"><button id="toggle-downloads" disabled>⏸ 暂停全部下载</button><span id="download-control-state" class="download-control-state">暂停 / 继续对全部任务生效</span><button id="refresh-downloads">刷新列表</button><span id="download-notice" class="notice" role="status"></span></div>
+      <div id="download-tabs" class="download-tabs" role="group" aria-label="按状态筛选下载任务"></div>
+      <div class="scroll-table"><table><thead><tr><th>状态</th><th>已下载 / 总大小</th><th>进度</th><th>速度</th><th>更新时间</th><th>Chat</th><th>消息 ID</th><th>内容 / 标题</th><th>文件路径</th><th>操作</th></tr></thead><tbody id="history-body"></tbody></table></div>
+    </section>
+    <section id="view-blacklist" class="view"><h2>资源黑名单</h2><p class="hint">按 Chat ID 和消息 ID 屏蔽资源；已排队任务在实际下载前会再次检查黑名单。</p><div class="scroll-table"><table><thead><tr><th>Chat</th><th>消息 ID</th><th>内容</th><th>加入时间</th><th></th></tr></thead><tbody id="blacklist-body"></tbody></table></div></section>
+  </main>
+  <script>
+    const $ = selector => document.querySelector(selector);
+    const chatList = $('#chat-list');
+    const results = $('#results');
+    const mediaOptions = ['audio', 'photo', 'video', 'document', 'voice', 'video_note', 'animation', 'sticker', 'new_chat_photo'];
+    let runtimeRunning = false;
+    let runtimeConnected = false;
+    let runtimeControlPending = false;
+    let runtimePollPending = false;
+    let settingsPending = false;
+    let chatsPending = false;
+    let previewPending = false;
+    let selectionPending = false;
+    let runtimeRevision = 0;
+    let previewResults = [];
+    let downloadsActive = false;
+    let downloadsPending = false;
+    let downloadsTimer = null;
+    let downloadsLoaded = false;
+    let downloadRecords = [];
+    let downloadFilter = 'all';
+    let downloadsPaused = false;
+    let downloadControlPending = false;
+    let downloadsRevision = 0;
+    const downloadActionPending = new Set();
+    const downloadBlacklistPending = new Set();
+
+    async function api(url, options = {}) {
+      const response = await fetch(url, {
+        ...options,
+        headers: {'Content-Type': 'application/json', ...options.headers}
+      });
+      if (response.redirected || response.status === 401 || response.status === 403) {
+        throw new Error('登录状态已失效或请求未获授权，请刷新页面重新登录。');
+      }
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.toLowerCase().includes('application/json')) {
+        throw new Error(`服务器未返回 JSON（${response.status}），请检查登录状态并刷新页面。`);
+      }
+      let data;
+      try {
+        data = await response.json();
+      } catch (_) {
+        throw new Error('服务器返回的数据无法解析，请稍后重试。');
+      }
+      if (!response.ok) {
+        throw new Error(data?.error || `请求失败 (${response.status})`);
+      }
+      return data;
+    }
+
+    function notice(target, text, error = false) {
+      target.textContent = text;
+      target.classList.toggle('error', error);
+    }
+
+    function showView(name) {
+      document.querySelectorAll('.nav button').forEach(button => {
+        button.classList.toggle('active', button.dataset.view === name);
+      });
+      document.querySelectorAll('.view').forEach(view => {
+        view.classList.toggle('active', view.id === `view-${name}`);
+      });
+      downloadsActive = name === 'history';
+      clearTimeout(downloadsTimer);
+      downloadsTimer = null;
+      if (downloadsActive) loadDownloads();
+      if (name === 'blacklist') loadBlacklist();
+    }
+
+    function globalCategories() {
+      return [...$('#media-types').querySelectorAll('input:checked')]
+        .map(input => input.value)
+        .concat('text');
+    }
+
+    function messageCategory(message) {
+      return message.category || (typeof message.media === 'string' ? message.media : 'text');
+    }
+
+    function selectedInputs() {
+      return [...results.querySelectorAll('.message input[type=checkbox]:checked:not(:disabled)')];
+    }
+
+    function previewMessage(input) {
+      return previewResults[Number(input.dataset.resultIndex)]?.messages?.[Number(input.dataset.index)];
+    }
+
+    function updateControls() {
+      const previewBusy = previewPending || chatsPending || runtimeControlPending;
+      $('#preview').disabled = !runtimeRunning || previewBusy || selectionPending;
+      $('#preview-chats').disabled = !runtimeRunning || previewBusy || selectionPending;
+      $('#save-chats').disabled = chatsPending || previewPending;
+      $('#add-chat').disabled = chatsPending;
+      chatList.querySelectorAll('.preview-chat').forEach(button => {
+        button.disabled = !runtimeRunning || previewBusy || selectionPending;
+      });
+      chatList.querySelectorAll('input, .remove-chat').forEach(input => {
+        input.disabled = chatsPending;
+      });
+      const selectable = results.querySelectorAll('.message input[type=checkbox]:not(:disabled)').length;
+      const selected = selectedInputs().length;
+      $('#select-all').disabled = !selectable || previewPending || selectionPending;
+      $('#select-none').disabled = !selected || previewPending || selectionPending;
+      $('#run-selected').disabled = !runtimeRunning || runtimeControlPending || previewPending || selectionPending || !selected;
+      $('#block-selected').disabled = previewPending || selectionPending || !selected;
+      $('#runtime-toggle').disabled = runtimeControlPending || settingsPending;
+      $('#save-runtime').disabled = settingsPending || runtimeControlPending;
+      $('#send-code').disabled = runtimeControlPending;
+      $('#sign-in').disabled = runtimeControlPending;
+    }
+
+    function appendField(container, labelText, className, value, options = {}) {
+      const label = document.createElement('label');
+      label.className = 'field';
+      label.textContent = labelText;
+      const input = document.createElement('input');
+      input.className = className;
+      input.value = value;
+      Object.assign(input, options);
+      label.append(input);
+      container.append(label);
+      return input;
+    }
+
+    function addChatRow(chat = {}) {
+      const row = document.createElement('div');
+      row.className = 'chat-row';
+      const head = document.createElement('div');
+      head.className = 'chat-head';
+      const selected = document.createElement('label');
+      selected.className = 'check';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'chat-selected';
+      checkbox.checked = true;
+      selected.append(checkbox, document.createTextNode('Chat（包含在全部预览中）'));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove-chat danger';
+      remove.textContent = '移除';
+      remove.onclick = () => row.remove();
+      head.append(selected, remove);
+      row.append(head);
+      appendField(row, 'Chat ID / username', 'chat-id', chat.chat_id ?? '', {
+        placeholder: '-1001234567890 或 channelname'
+      });
+      const range = document.createElement('div');
+      range.className = 'form-grid';
+      appendField(range, 'last_read_message_id（不含此 ID；0 不设下界）', 'chat-last-read', chat.last_read_message_id ?? 0, {
+        type: 'number', min: '0', step: '1'
+      });
+      appendField(range, 'end_message_id（含此 ID；留空或 0 不限）', 'chat-end', chat.end_message_id ?? 0, {
+        type: 'number', min: '0', step: '1'
+      });
+      appendField(range, 'preview_limit（最新候选条数，最多 500）', 'chat-limit', chat.preview_limit ?? 100, {
+        type: 'number', min: '1', max: '500', step: '1'
+      });
+      row.append(range);
+      const rangeHint = document.createElement('p');
+      rangeHint.className = 'hint';
+      rangeHint.textContent = '预览读取范围内最新的 N 条候选消息，N 为 preview_limit；超出限制时会显示警告。';
+      row.append(rangeHint);
+      appendField(row, '下载筛选表达式', 'chat-filter', chat.download_filter ?? '', {
+        placeholder: "例如: media_type == 'video'"
+      });
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const preview = document.createElement('button');
+      preview.type = 'button';
+      preview.className = 'preview-chat primary';
+      preview.textContent = '保存并预览此 Chat';
+      preview.onclick = () => previewChats([row]);
+      actions.append(preview);
+      row.append(actions);
+      chatList.append(row);
+      updateControls();
+    }
+
+    function readChatNumber(row, selector, fallback, minimum, maximum = Number.MAX_SAFE_INTEGER) {
+      const input = row.querySelector(selector);
+      const value = input.value.trim() === '' ? fallback : Number(input.value);
+      if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+        input.focus();
+        throw new Error(`${row.querySelector('.chat-id').value || 'Chat'}：${input.parentElement.firstChild.textContent} 值无效`);
+      }
+      return value;
+    }
+
+    function collectChats() {
+      return [...chatList.querySelectorAll('.chat-row')].map(row => {
+        const chat_id = row.querySelector('.chat-id').value.trim();
+        if (!chat_id) {
+          row.querySelector('.chat-id').focus();
+          throw new Error('请填写每一行的 Chat ID / username，或移除空白行。');
+        }
+        const last_read_message_id = readChatNumber(row, '.chat-last-read', 0, 0);
+        const end_message_id = readChatNumber(row, '.chat-end', 0, 0);
+        if (end_message_id && end_message_id <= last_read_message_id) {
+          throw new Error(`${chat_id}：end_message_id 必须大于 last_read_message_id，或设为 0。`);
+        }
+        return {
+          chat_id,
+          download_filter: row.querySelector('.chat-filter').value,
+          last_read_message_id,
+          end_message_id,
+          preview_limit: readChatNumber(row, '.chat-limit', 100, 1, 500)
+        };
+      });
+    }
+
+    async function saveChats() {
+      const chats = collectChats();
+      await api('/api/task/chats', {method: 'PUT', body: JSON.stringify({chats})});
+      notice($('#chat-notice'), `已保存 ${chats.length} 个 Chat 的设置`);
+    }
+
+    function setRunning(running, connected = running) {
+      runtimeRunning = Boolean(running);
+      runtimeConnected = Boolean(connected);
+      $('#status-dot').classList.toggle('on', runtimeConnected);
+      $('#runtime-status').textContent = runtimeRunning ? 'Telegram 已启动' : runtimeConnected ? 'Telegram 等待登录' : 'Telegram 未启动';
+      $('#runtime-toggle').textContent = runtimeConnected ? '停止 Telegram' : '连接 Telegram';
+      $('#runtime-toggle').classList.toggle('danger', runtimeConnected);
+      $('#telegram-auth').hidden = !runtimeConnected || runtimeRunning;
+      updateControls();
+    }
+
+    async function loadSettings() {
+      try {
+        const settings = await api('/api/runtime');
+        $('#api-id').value = settings.api_id || '';
+        $('#api-hash').value = '';
+        $('#api-hash').placeholder = settings.has_api_hash ? '已保存，留空保持原值' : '请输入 API Hash';
+        $('#bot-token').value = '';
+        $('#bot-token').placeholder = settings.has_bot_token ? '已保存，留空保持原值' : '可选';
+        $('#web-secret').value = '';
+        $('#web-secret').placeholder = settings.has_web_login_secret ? '已设置，留空保持原值' : '留空关闭';
+        $('#save-path').value = settings.save_path || 'downloads';
+        $('#workers').value = settings.worker_count || 3;
+        $('#proxy').value = settings.proxy_url || '';
+        const media = settings.media_types || mediaOptions;
+        $('#media-types').replaceChildren(...mediaOptions.map(name => {
+          const label = document.createElement('label');
+          label.className = 'check';
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.value = name;
+          input.checked = media.includes(name);
+          label.append(input, document.createTextNode(name));
+          return label;
+        }));
+        const formats = settings.file_formats || {};
+        for (const kind of ['audio', 'document', 'video']) {
+          $(`#format-${kind}`).value = (formats[kind] || ['all']).join(', ');
+        }
+        setRunning(settings.running, settings.connected);
+        if (settings.needs_phone) {
+          $('#telegram-auth').hidden = false;
+          notice($('#settings-notice'), '连接未完成，请输入手机号继续登录');
+        }
+      } catch (error) {
+        notice($('#settings-notice'), error.message, true);
+      }
+    }
+
+    async function pollRuntime() {
+      if (runtimeControlPending || settingsPending || runtimePollPending) return;
+      const revision = runtimeRevision;
+      runtimePollPending = true;
+      try {
+        const status = await api('/api/runtime');
+        if (!runtimeControlPending && !settingsPending && revision === runtimeRevision) {
+          setRunning(status.running, status.connected);
+        }
+      } catch (error) {
+        if (revision === runtimeRevision && !runtimeControlPending) {
+          setRunning(false, runtimeConnected);
+          $('#runtime-status').textContent = `状态获取失败：${error.message}`;
+        }
+      } finally {
+        runtimePollPending = false;
+      }
+    }
+
+    async function loadChats() {
+      try {
+        const chats = await api('/api/task/chats');
+        chatList.replaceChildren();
+        chats.forEach(addChatRow);
+      } catch (error) {
+        notice($('#chat-notice'), error.message, true);
+      }
+    }
+
+    $('#save-runtime').onclick = async () => {
+      settingsPending = true;
+      runtimeRevision++;
+      updateControls();
+      const file_formats = {};
+      for (const kind of ['audio', 'document', 'video']) {
+        file_formats[kind] = $(`#format-${kind}`).value.split(',').map(value => value.trim()).filter(Boolean);
+      }
+      const payload = {
+        api_id: $('#api-id').value,
+        api_hash: $('#api-hash').value,
+        bot_token: $('#bot-token').value,
+        save_path: $('#save-path').value,
+        max_download_task: $('#workers').value,
+        proxy_url: $('#proxy').value,
+        web_login_secret: $('#clear-web-secret').checked ? '' : $('#web-secret').value,
+        clear_web_login_secret: $('#clear-web-secret').checked,
+        media_types: globalCategories().filter(type => type !== 'text'),
+        file_formats
+      };
+      try {
+        await api('/api/runtime', {method: 'PUT', body: JSON.stringify(payload)});
+        notice($('#settings-notice'), '设置已保存在本机 Web 状态库');
+      } catch (error) {
+        notice($('#settings-notice'), error.message, true);
+      } finally {
+        settingsPending = false;
+        updateControls();
+      }
+    };
+
+    $('#add-chat').onclick = () => addChatRow();
+    $('#save-chats').onclick = async () => {
+      chatsPending = true;
+      updateControls();
+      try {
+        await saveChats();
+      } catch (error) {
+        notice($('#chat-notice'), error.message, true);
+      } finally {
+        chatsPending = false;
+        updateControls();
+      }
+    };
+    $('#preview-chats').onclick = () => previewChats(
+      [...chatList.querySelectorAll('.chat-row')].filter(row => row.querySelector('.chat-selected').checked)
+    );
+
+    async function runtimeControl(action) {
+      if (runtimeControlPending) return;
+      runtimeControlPending = true;
+      runtimeRevision++;
+      updateControls();
+      try {
+        await action();
+      } catch (error) {
+        notice($('#settings-notice'), error.message, true);
+      } finally {
+        runtimeControlPending = false;
+        updateControls();
+      }
+    }
+
+    $('#runtime-toggle').onclick = () => runtimeControl(async () => {
+      if (runtimeConnected) {
+        await api('/api/runtime/stop', {method: 'POST', body: '{}'});
+        setRunning(false, false);
+      } else {
+        const response = await api('/api/runtime/start', {method: 'POST', body: '{}'});
+        setRunning(!response.needs_phone, true);
+        if (response.needs_phone) {
+          notice($('#settings-notice'), '连接已建立，请输入手机号并获取验证码');
+        }
+      }
+    });
+    $('#send-code').onclick = () => runtimeControl(async () => {
+      await api('/api/runtime/send-code', {method: 'POST', body: JSON.stringify({phone: $('#phone').value})});
+      notice($('#settings-notice'), '验证码已发送');
+    });
+    $('#sign-in').onclick = () => runtimeControl(async () => {
+      const response = await api('/api/runtime/sign-in', {
+        method: 'POST',
+        body: JSON.stringify({code: $('#telegram-code').value, password: $('#telegram-password').value})
+      });
+      if (response.needs_password) {
+        notice($('#settings-notice'), '需要两步验证密码');
+      } else {
+        setRunning(true, true);
+        notice($('#settings-notice'), `Telegram 已连接：${response.username || ''}`);
+      }
+    });
+    document.querySelectorAll('.nav button').forEach(button => {
+      button.onclick = () => showView(button.dataset.view);
+    });
+
+    function resultWarnings(result) {
+      const values = [result.warning, ...(Array.isArray(result.warnings) ? result.warnings : result.warnings ? [result.warnings] : [])];
+      return values.filter(Boolean).map(value => String(value));
+    }
+
+    function renderPreview(data, categories = globalCategories()) {
+      results.replaceChildren();
+      previewResults = data;
+      const filters = $('#preview-filters');
+      filters.replaceChildren();
+      const available = new Set(data.flatMap(result => (result.messages || []).map(messageCategory)));
+      const enabled = new Set(categories);
+      for (const type of available) {
+        const label = document.createElement('label');
+        label.className = 'check';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = enabled.has(type);
+        input.value = type;
+        input.onchange = applyPreviewFilters;
+        label.append(input, document.createTextNode(type));
+        filters.append(label);
+      }
+      data.forEach((result, resultIndex) => {
+        const section = document.createElement('section');
+        section.className = 'link-result';
+        const title = document.createElement('div');
+        title.className = 'link-title';
+        title.textContent = result.link || (result.chat_id != null ? `Chat ${result.chat_id}` : `预览 ${resultIndex + 1}`);
+        section.append(title);
+        for (const warning of resultWarnings(result)) {
+          const warningElement = document.createElement('div');
+          warningElement.className = 'hint';
+          warningElement.textContent = `警告：${warning}`;
+          section.append(warningElement);
+        }
+        if (result.error) {
+          const error = document.createElement('div');
+          error.className = 'error';
+          error.textContent = result.error;
+          section.append(error);
+        } else if (!(result.messages || []).length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = '此范围内没有可预览的消息。';
+          section.append(empty);
+        }
+        (result.messages || []).forEach((message, index) => {
+          const row = document.createElement('label');
+          row.className = 'message';
+          const check = document.createElement('input');
+          check.type = 'checkbox';
+          check.disabled = Boolean(message.blocked || result.error || !result.preview_id);
+          check.checked = !check.disabled && message.selected !== false && enabled.has(messageCategory(message));
+          check.dataset.previewId = result.preview_id || '';
+          check.dataset.resultIndex = resultIndex;
+          check.dataset.index = index;
+          check.onchange = updateControls;
+          const content = document.createElement('div');
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          const kind = document.createElement('span');
+          kind.className = 'kind';
+          kind.textContent = messageCategory(message);
+          meta.append(kind, document.createTextNode(`Chat ${message.chat_id ?? result.chat_id ?? '未知'} · 消息 ID ${message.id ?? '未知'}`));
+          if (message.date) meta.append(document.createTextNode(` · ${message.date}`));
+          if (message.is_comment) {
+            const comment = document.createElement('span');
+            comment.className = 'comment';
+            comment.textContent = '评论';
+            meta.append(comment);
+          }
+          if (message.blocked) {
+            const blocked = document.createElement('span');
+            blocked.className = 'error';
+            blocked.textContent = '已被黑名单屏蔽';
+            meta.append(blocked);
+          }
+          content.append(meta);
+          if (message.media) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'placeholder';
+            placeholder.textContent = message.media_label || `[${messageCategory(message).toUpperCase()}]`;
+            content.append(placeholder);
+          }
+          const text = document.createElement('div');
+          text.className = 'text';
+          text.textContent = message.text || (message.media ? '（无附带文字）' : '（空消息）');
+          content.append(text);
+          row.append(check, content);
+          section.append(row);
+        });
+        results.append(section);
+      });
+      updateControls();
+    }
+
+    function previewSummary(data, categories) {
+      const messages = data.flatMap(result => result.messages || []);
+      const errors = data.filter(result => result.error).length;
+      const warnings = data.reduce((count, result) => count + resultWarnings(result).length, 0);
+      const blocked = messages.filter(message => message.blocked).length;
+      const summary = `预览返回 ${messages.length} 条消息，错误 ${errors} 项，警告 ${warnings} 项，已屏蔽 ${blocked} 条。类型：${categories.join('、')}。请勾选后点击“开始下载所选”。`;
+      notice($('#task-notice'), summary, errors > 0);
+    }
+
+    function applyPreviewFilters() {
+      const enabled = new Set([...$('#preview-filters').querySelectorAll('input:checked')].map(input => input.value));
+      results.querySelectorAll('.message input[type=checkbox]').forEach(input => {
+        input.checked = !input.disabled && enabled.has(messageCategory(previewMessage(input) || {}));
+      });
+      updateControls();
+    }
+
+    async function requestPreview(url, payload, beforePreview) {
+      if (!runtimeRunning || previewPending || chatsPending || runtimeControlPending) return;
+      const categories = globalCategories();
+      previewPending = true;
+      chatsPending = Boolean(beforePreview);
+      renderPreview([], categories);
+      showView('tasks');
+      notice($('#task-notice'), beforePreview ? '正在保存 Chat 设置并读取消息...' : '正在读取消息...');
+      updateControls();
+      try {
+        if (beforePreview) await beforePreview();
+        const response = await api(url, {
+          method: 'POST',
+          body: JSON.stringify({...payload, include_comments: $('#include-comments').checked, categories})
+        });
+        if (!Array.isArray(response?.results)) throw new Error('服务器返回的预览结果格式无效。');
+        renderPreview(response.results, categories);
+        previewSummary(response.results, categories);
+      } catch (error) {
+        renderPreview([], categories);
+        notice($('#task-notice'), `预览失败：${error.message}`, true);
+        if (beforePreview) notice($('#chat-notice'), error.message, true);
+      } finally {
+        previewPending = false;
+        chatsPending = false;
+        updateControls();
+      }
+    }
+
+    async function previewChats(rows) {
+      if (!rows.length) {
+        notice($('#chat-notice'), '请勾选至少一个需要预览的 Chat。', true);
+        return;
+      }
+      const chat_ids = [...new Set(rows.map(row => row.querySelector('.chat-id').value.trim()))];
+      await requestPreview('/api/task/preview-chats', {chat_ids}, saveChats);
+    }
+
+    $('#preview').onclick = () => requestPreview('/api/task/preview', {links: $('#links').value});
+    $('#select-all').onclick = applyPreviewFilters;
+    $('#select-none').onclick = () => {
+      results.querySelectorAll('.message input[type=checkbox]').forEach(input => { input.checked = false; });
+      updateControls();
+    };
+    $('#block-selected').onclick = async () => {
+      selectionPending = true;
+      updateControls();
+      let count = 0;
+      try {
+        for (const input of selectedInputs()) {
+          const result = previewResults[Number(input.dataset.resultIndex)];
+          const message = previewMessage(input);
+          if (!message) continue;
+          await api('/api/blacklist', {
+            method: 'POST',
+            body: JSON.stringify({chat_id: message.chat_id ?? result.chat_id, message_id: message.id, title: message.text || message.media_label || ''})
+          });
+          message.blocked = true;
+          input.checked = false;
+          input.disabled = true;
+          const blocked = document.createElement('span');
+          blocked.className = 'error';
+          blocked.textContent = '已被黑名单屏蔽';
+          input.closest('.message').querySelector('.meta').append(blocked);
+          count++;
+        }
+        notice($('#task-notice'), `已将 ${count} 条消息加入黑名单`);
+      } catch (error) {
+        notice($('#task-notice'), `已屏蔽 ${count} 条；${error.message}`, true);
+      } finally {
+        selectionPending = false;
+        updateControls();
+      }
+    };
+    $('#run-selected').onclick = async () => {
+      if (!runtimeRunning || runtimeControlPending || selectionPending) return;
+      const byId = new Map();
+      for (const input of selectedInputs()) {
+        const id = input.dataset.previewId;
+        if (!byId.has(id)) byId.set(id, []);
+        byId.get(id).push(Number(input.dataset.index));
+      }
+      const selected = [...byId].map(([preview_id, indexes]) => ({preview_id, indexes}));
+      if (!selected.length) {
+        notice($('#task-notice'), '请先选择要下载的项目', true);
+        return;
+      }
+      selectionPending = true;
+      updateControls();
+      try {
+        const response = await api('/api/task/submit', {method: 'POST', body: JSON.stringify({selected})});
+        notice($('#task-notice'), `已排队 ${response.queued ?? 0} 条，筛选跳过 ${response.filtered ?? 0} 条，黑名单屏蔽 ${response.blocked ?? 0} 条；请到“下载管理”查看进度。`);
+        selectedInputs().forEach(input => { input.checked = false; });
+      } catch (error) {
+        notice($('#task-notice'), error.message, true);
+      } finally {
+        selectionPending = false;
+        updateControls();
+      }
+    };
+
+    async function updateBlacklist(message, action) {
+      await api('/api/blacklist', {
+        method: action === 'block' ? 'POST' : 'DELETE',
+        body: JSON.stringify({chat_id: message.chat_id, message_id: message.message_id, title: message.title || ''})
+      });
+    }
+
+    function tableNotice(body, columns, text, error = false) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = columns;
+      cell.className = error ? 'error' : 'empty';
+      cell.textContent = text;
+      row.append(cell);
+      body.replaceChildren(row);
+    }
+
+    function downloadStatus(value) {
+      const key = String(value ?? '').trim().toLowerCase().replace(/[\s_-]/g, '');
+      const statuses = {
+        queued: ['queued', '排队中'],
+        downloading: ['downloading', '下载中'],
+        successdownload: ['completed', '已完成'],
+        completed: ['completed', '已完成'],
+        skipdownload: ['skipped', '已跳过'],
+        faileddownload: ['failed', '下载失败'],
+        cancelled: ['cancelled', '已取消'],
+        blacklisted: ['blacklisted', '已屏蔽']
+      };
+      return Object.hasOwn(statuses, key) ? statuses[key] : ['unknown', '未知状态'];
+    }
+
+    function downloadNumber(value) {
+      if (typeof value !== 'number' && typeof value !== 'string') return null;
+      if (typeof value === 'string' && !value.trim()) return null;
+      const number = Number(value);
+      return Number.isFinite(number) && number >= 0 ? number : null;
+    }
+
+    function downloadBytes(value) {
+      const number = downloadNumber(value);
+      if (number === null) return '—';
+      const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+      const exponent = number > 0 ? Math.max(0, Math.min(Math.floor(Math.log(number) / Math.log(1024)), units.length - 1)) : 0;
+      return `${(number / (1024 ** exponent)).toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+    }
+
+    function downloadProgress(item, state) {
+      if (state === 'completed') return 100;
+      const downloaded = downloadNumber(item.down_byte);
+      const total = downloadNumber(item.total_size);
+      if (downloaded !== null && total > 0) return Math.min(100, downloaded / total * 100);
+      const raw = typeof item.download_progress === 'string' ? item.download_progress.trim().replace(/%$/, '') : item.download_progress;
+      const progress = downloadNumber(raw);
+      if (progress !== null) return Math.min(100, progress);
+      return state === 'queued' ? 0 : null;
+    }
+
+    function downloadTime(value) {
+      if (value === null || value === undefined || value === '') return '—';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+    }
+
+    function updateDownloadControl() {
+      const button = $('#toggle-downloads');
+      button.disabled = !downloadsLoaded || downloadControlPending;
+      button.textContent = downloadControlPending ? '正在处理...' : downloadsPaused ? '▶ 继续全部下载' : '⏸ 暂停全部下载';
+      const state = $('#download-control-state');
+      state.textContent = downloadsPaused ? '已全局暂停 · 点击继续恢复全部任务' : '暂停 / 继续对全部任务生效';
+      state.classList.toggle('paused', downloadsPaused);
+    }
+
+    async function downloadAction(item, action) {
+      const key = JSON.stringify([item.chat_id, item.message_id]);
+      if (downloadActionPending.has(key) || downloadBlacklistPending.has(key)) return;
+      downloadActionPending.add(key);
+      downloadsRevision++;
+      renderDownloads();
+      try {
+        await api(`/api/downloads/${action}`, {
+          method: action === 'remove' ? 'DELETE' : 'POST',
+          body: JSON.stringify({chat_id: item.chat_id, message_id: item.message_id})
+        });
+        downloadsRevision++;
+        await loadDownloads();
+        notice($('#download-notice'), action === 'retry' ? '已重新加入下载队列' : '已移除任务');
+      } catch (error) {
+        notice($('#download-notice'), error.message, true);
+      } finally {
+        downloadActionPending.delete(key);
+        renderDownloads();
+      }
+    }
+
+    async function toggleDownloads() {
+      if (downloadControlPending || !downloadsLoaded) return;
+      const action = downloadsPaused ? 'resume' : 'pause';
+      downloadControlPending = true;
+      downloadsRevision++;
+      updateDownloadControl();
+      try {
+        const response = await api(`/api/downloads/${action}`, {method: 'POST', body: '{}'});
+        downloadsPaused = typeof response?.paused === 'boolean' ? response.paused : action === 'pause';
+        downloadsRevision++;
+        await loadDownloads();
+        notice($('#download-notice'), downloadsPaused ? '已暂停全部下载' : '已继续全部下载');
+      } catch (error) {
+        notice($('#download-notice'), error.message, true);
+      } finally {
+        downloadControlPending = false;
+        updateDownloadControl();
+      }
+    }
+
+    function renderDownloads() {
+      updateDownloadControl();
+      const body = $('#history-body');
+      const counts = {all: downloadRecords.length, queued: 0, downloading: 0, completed: 0, failed: 0, skipped: 0, cancelled: 0, blacklisted: 0, unknown: 0};
+      downloadRecords.forEach(item => { counts[downloadStatus(item.status)[0]]++; });
+      const labels = {all: '全部', queued: '排队中', downloading: '下载中', completed: '已完成', failed: '下载失败', skipped: '已跳过', cancelled: '已取消', blacklisted: '已屏蔽', unknown: '未知状态'};
+      if (downloadFilter === 'unknown' && !counts.unknown) downloadFilter = 'all';
+      const focusedFilter = document.activeElement?.dataset.downloadFilter;
+      $('#download-tabs').replaceChildren(...Object.entries(labels).filter(([key]) => key !== 'unknown' || counts[key]).map(([key, label]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.downloadFilter = key;
+        button.classList.toggle('active', downloadFilter === key);
+        button.setAttribute('aria-pressed', String(downloadFilter === key));
+        const count = document.createElement('span');
+        count.className = 'count';
+        count.textContent = counts[key];
+        button.append(document.createTextNode(label), count);
+        button.onclick = () => { downloadFilter = key; renderDownloads(); };
+        return button;
+      }));
+      if (focusedFilter) $('#download-tabs').querySelector(`[data-download-filter="${focusedFilter}"]`)?.focus({preventScroll: true});
+      const rows = downloadRecords.filter(item => downloadFilter === 'all' || downloadStatus(item.status)[0] === downloadFilter);
+      if (!rows.length) {
+        tableNotice(body, 10, downloadRecords.length ? '当前筛选下没有下载记录' : '暂无下载记录');
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      for (const item of rows) {
+        const row = document.createElement('tr');
+        const [state, label] = downloadStatus(item.status);
+        const cell = (text, className = '') => {
+          const element = document.createElement('td');
+          element.className = className;
+          element.textContent = text;
+          row.append(element);
+          return element;
+        };
+        cell(label, `download-state ${state}`);
+        const downloaded = downloadNumber(item.down_byte);
+        const total = downloadNumber(item.total_size);
+        cell(`${downloadBytes(downloaded ?? (state === 'completed' ? total : state === 'queued' ? 0 : null))} / ${downloadBytes(total)}`, 'download-bytes');
+        const percentage = downloadProgress(item, state);
+        const progressCell = cell(percentage === null ? '—' : `${percentage.toFixed(1)}%`, 'download-progress');
+        if (percentage !== null) {
+          const progress = document.createElement('progress');
+          progress.max = 100;
+          progress.value = percentage;
+          progress.setAttribute('aria-label', `下载进度 ${percentage.toFixed(1)}%`);
+          progressCell.append(progress);
+        }
+        const speed = downloadNumber(item.download_speed);
+        cell(state === 'downloading' && speed !== null ? `${downloadBytes(speed)}/s` : '—', 'download-speed');
+        cell(downloadTime(item.updated_at), 'download-time');
+        cell(item.chat_id ?? '—');
+        cell(item.message_id ?? '—');
+        cell(item.title || '（无标题）', 'download-title');
+        cell(item.file_path || '—', 'download-file');
+        const actions = cell('');
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'row-actions';
+        const key = JSON.stringify([item.chat_id, item.message_id]);
+        const unavailable = item.chat_id == null || item.message_id == null || downloadActionPending.has(key) || downloadBlacklistPending.has(key);
+        const addAction = (text, action, className, title) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = text;
+          button.className = className;
+          button.title = title;
+          button.disabled = unavailable;
+          button.onclick = () => downloadAction(item, action);
+          actionButtons.append(button);
+        };
+        if (['failed', 'cancelled', 'skipped'].includes(state)) {
+          addAction('↻ 重试', 'retry', 'retry', '重新加入下载队列');
+        }
+        addAction('× 移除', 'remove', '', '移除任务；排队或下载中的任务将取消');
+        const block = document.createElement('button');
+        block.type = 'button';
+        block.textContent = state === 'blacklisted' ? '已屏蔽' : '屏蔽';
+        block.className = 'quiet';
+        block.title = '加入资源黑名单';
+        block.disabled = state === 'blacklisted' || unavailable;
+        block.onclick = async () => {
+          if (downloadBlacklistPending.has(key) || downloadActionPending.has(key)) return;
+          downloadBlacklistPending.add(key);
+          downloadsRevision++;
+          renderDownloads();
+          try {
+            await updateBlacklist(item, 'block');
+            downloadsRevision++;
+            await loadDownloads();
+            notice($('#download-notice'), '已加入黑名单');
+          } catch (error) {
+            notice($('#download-notice'), error.message, true);
+          } finally {
+            downloadBlacklistPending.delete(key);
+            renderDownloads();
+          }
+        };
+        actionButtons.append(block);
+        actions.append(actionButtons);
+        fragment.append(row);
+      }
+      body.replaceChildren(fragment);
+    }
+
+    async function loadDownloads() {
+      if (!downloadsActive || document.hidden || downloadsPending) return;
+      clearTimeout(downloadsTimer);
+      downloadsTimer = null;
+      downloadsPending = true;
+      const revision = downloadsRevision;
+      $('#refresh-downloads').disabled = true;
+      if (!downloadsLoaded) tableNotice($('#history-body'), 10, '正在加载下载记录...');
+      try {
+        const rows = await api('/api/downloads');
+        if (!Array.isArray(rows)) throw new Error('服务器返回的下载列表格式无效。');
+        if (revision !== downloadsRevision) return;
+        downloadRecords = rows.filter(item => item && typeof item === 'object');
+        const control = downloadRecords.find(item => typeof item.global_paused === 'boolean');
+        if (control && !downloadControlPending) downloadsPaused = control.global_paused;
+        downloadsLoaded = true;
+        renderDownloads();
+        notice($('#download-notice'), `最近刷新：${new Date().toLocaleTimeString()}`);
+      } catch (error) {
+        notice($('#download-notice'), `刷新失败：${error.message}`, true);
+        if (!downloadsLoaded) tableNotice($('#history-body'), 10, '无法加载下载记录，请点击刷新列表重试。', true);
+      } finally {
+        downloadsPending = false;
+        $('#refresh-downloads').disabled = false;
+        if (downloadsActive && !document.hidden) downloadsTimer = setTimeout(loadDownloads, 2000);
+      }
+    }
+
+    $('#refresh-downloads').onclick = loadDownloads;
+    $('#toggle-downloads').onclick = toggleDownloads;
+    $('#download-status-link').onclick = event => {
+      event.preventDefault();
+      showView('history');
+    };
+    document.addEventListener('visibilitychange', () => {
+      clearTimeout(downloadsTimer);
+      downloadsTimer = null;
+      if (downloadsActive && !document.hidden) loadDownloads();
+    });
+
+    async function loadBlacklist() {
+      const body = $('#blacklist-body');
+      body.replaceChildren();
+      try {
+        const rows = await api('/api/blacklist');
+        if (!rows.length) {
+          tableNotice(body, 5, '黑名单为空');
+          return;
+        }
+        for (const item of rows) {
+          const row = document.createElement('tr');
+          for (const value of [item.chat_id, item.message_id, item.title, item.created_at]) {
+            const cell = document.createElement('td');
+            cell.textContent = value ?? '';
+            row.append(cell);
+          }
+          const actions = document.createElement('td');
+          const remove = document.createElement('button');
+          remove.textContent = '移除';
+          remove.onclick = async () => {
+            try {
+              await updateBlacklist(item, 'unblock');
+              await loadBlacklist();
+            } catch (error) {
+              tableNotice(body, 5, error.message, true);
+            }
+          };
+          actions.append(remove);
+          row.append(actions);
+          body.append(row);
+        }
+      } catch (error) {
+        tableNotice(body, 5, error.message, true);
+      }
+    }
+
+    async function initialize() {
+      await Promise.all([loadSettings(), loadChats()]);
+      if (location.hash === '#downloads') showView('history');
+      setInterval(pollRuntime, 5000);
+    }
+    initialize();
+  </script>
+</body>
+</html>

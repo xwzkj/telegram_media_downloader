@@ -28,7 +28,7 @@ from module.pyrogram_extension import (
     update_cloud_upload_stat,
     upload_telegram_chat,
 )
-from module.web import init_web
+from module.web import active_download_lock, active_download_tasks, init_web
 from utils.format import truncate_filename, validate_title
 from utils.log import LogFilter
 from utils.meta import print_meta
@@ -47,6 +47,7 @@ APPLICATION_NAME = "media_downloader"
 app = Application(CONFIG_NAME, DATA_FILE_NAME, APPLICATION_NAME)
 
 queue: asyncio.Queue = asyncio.Queue()
+active_download_tasks = {}
 RETRY_TIME_OUT = 3
 
 logging.getLogger("pyrogram.session.session").addFilter(LogFilter())
@@ -169,12 +170,36 @@ def _get_media_file_stem(message: pyrogram.types.Message) -> str:
     return f"{message.id}_{year_month}"
 
 
+def _media_output_location(application, chat_id, message, media_type, node=None):
+    """Keep comments next to the source post, independent of discussion metadata."""
+    source = getattr(node, "comment_source", None)
+    location_message = source or message
+    chat = location_message.chat
+    dirname = validate_title(
+        chat.title if chat and chat.title else str(
+            chat.id if source and chat and chat.id is not None else chat_id
+        )
+    )
+    date = location_message.date
+    date_dir = date.strftime(application.date_format) if date else "0"
+    path = application.get_file_save_path(media_type, dirname, date_dir)
+    if source:
+        # Even a configured media_type hierarchy must keep the discussion with
+        # its post; mirror the type directory of the original message.
+        source_type = next((kind for kind in MetaData.AVAILABLE_MEDIA
+                            if getattr(source, kind, None) is not None), "msg")
+        path = application.get_file_save_path(source_type, dirname, date_dir)
+    prefix = f"{_get_media_file_stem(source)}_comment_" if source else ""
+    return path, dirname, prefix
+
+
 async def _get_media_meta(
     chat_id: Union[int, str],
     message: pyrogram.types.Message,
     media_obj: Union[Audio, Document, Photo, Video, VideoNote, Voice],
     _type: str,
     media_group: Optional[List[pyrogram.types.Message]] = None,
+    node: Optional[TaskNode] = None,
 ) -> Tuple[str, str, Optional[str]]:
     """Extract file name and file id from media object.
 
@@ -199,20 +224,13 @@ async def _get_media_meta(
     file_name = None
     temp_file_name = None
     path_message = media_group[0] if media_group else message
-    dirname = validate_title(f"{chat_id}")
-    if path_message.chat and path_message.chat.title:
-        dirname = validate_title(f"{path_message.chat.title}")
-
-    if path_message.date:
-        datetime_dir_name = path_message.date.strftime(app.date_format)
-    else:
-        datetime_dir_name = "0"
-
+    file_save_path, dirname, comment_prefix = _media_output_location(
+        app, chat_id, path_message, _type, node
+    )
     if _type in ["voice", "video_note"]:
         # pylint: disable = C0209
         file_format = media_obj.mime_type.split("/")[-1]  # type: ignore
-        file_save_path = app.get_file_save_path(_type, dirname, datetime_dir_name)
-        file_name = f"{_get_media_file_stem(path_message)}_p1.{file_format}"
+        file_name = f"{comment_prefix}{_get_media_file_stem(path_message)}_p1.{file_format}"
         file_name = validate_title(file_name)
         temp_file_name = os.path.join(app.temp_save_path, dirname, file_name)
 
@@ -253,10 +271,8 @@ async def _get_media_meta(
             else 1
         )
         gen_file_name = (
-            f"{_get_media_file_stem(path_message)}_p{position}{file_name_suffix}"
+            f"{comment_prefix}{_get_media_file_stem(path_message)}_p{position}{file_name_suffix}"
         )
-
-        file_save_path = app.get_file_save_path(_type, dirname, datetime_dir_name)
 
         temp_file_name = os.path.join(app.temp_save_path, dirname, gen_file_name)
 
@@ -300,20 +316,28 @@ async def _get_download_media_group(
         return media_group
 
 
-def _save_media_group_text(
-    chat_id: Union[int, str], media_group: List[pyrogram.types.Message]
-) -> str:
-    """Save every caption and text verbatim, with a newline between fields."""
-    first = media_group[0]
-    dirname = validate_title(
-        first.chat.title if first.chat and first.chat.title else str(chat_id)
+def _record_web_task(node, message, status, file_path=""):
+    source = getattr(node, "comment_source", None)
+    app.web_state.record(
+        node.chat_id, message.id, message.caption or message.text or "",
+        status, file_path or "",
+        getattr(getattr(source, "chat", None), "id", "") if source else "",
+        getattr(source, "id", None) if source else None,
+        getattr(node, "comment_source_ref", "") if source else "",
     )
-    datetime_dir_name = first.date.strftime(app.date_format) if first.date else "0"
-    file_save_path = app.get_file_save_path("msg", dirname, datetime_dir_name)
-    file_name = os.path.join(file_save_path, f"{_get_media_file_stem(first)}.txt")
+
+
+def _save_media_text(
+    chat_id: Union[int, str], messages: List[pyrogram.types.Message],
+    node: Optional[TaskNode] = None, path_message=None,
+) -> str:
+    """Save all media captions and text verbatim, separated by newlines."""
+    first = path_message or messages[0]
+    file_save_path, _, prefix = _media_output_location(app, chat_id, first, "msg", node)
+    file_name = os.path.join(file_save_path, f"{prefix}{_get_media_file_stem(first)}.txt")
     text_parts = [
         value
-        for message in media_group
+        for message in messages
         for value in (message.caption, message.text)
         if value is not None and value != ""
     ]
@@ -332,25 +356,19 @@ async def add_download_task(
     if message.empty:
         return False
     node.download_status[message.id] = DownloadStatus.Downloading
+    _record_web_task(node, message, "Queued")
     await queue.put((message, node))
     node.total_task += 1
     return True
 
 
 async def save_msg_to_file(
-    app, chat_id: Union[int, str], message: pyrogram.types.Message
+    app, chat_id: Union[int, str], message: pyrogram.types.Message,
+    node: Optional[TaskNode] = None,
 ):
     """Write message text into file"""
-    dirname = validate_title(
-        message.chat.title if message.chat and message.chat.title else str(chat_id)
-    )
-    datetime_dir_name = message.date.strftime(app.date_format) if message.date else "0"
-
-    file_save_path = app.get_file_save_path("msg", dirname, datetime_dir_name)
-    file_name = os.path.join(
-        file_save_path,
-        f"{_get_media_file_stem(message)}.txt",
-    )
+    file_save_path, _, prefix = _media_output_location(app, chat_id, message, "msg", node)
+    file_name = os.path.join(file_save_path, f"{prefix}{_get_media_file_stem(message)}.txt")
 
     os.makedirs(os.path.dirname(file_name), exist_ok=True)
 
@@ -372,10 +390,16 @@ async def download_task(
         client, message, app.media_types, app.file_formats, node
     )
 
-    if app.enable_download_txt and message.text and not message.media:
-        download_status, file_name = await save_msg_to_file(app, node.chat_id, message)
+    if (
+        (app.enable_download_txt or node.save_text_messages)
+        and message.text
+        and not message.media
+    ):
+        download_status, file_name = await save_msg_to_file(app, node.chat_id, message, node)
 
-    if not node.bot:
+    if not node.bot and not getattr(node, "web_manual_selection", False):
+        # Manual web selections are not a contiguous scan: advancing the legacy
+        # cursor would hide unchecked or failed messages on the next preview.
         app.set_download_id(node, message.id, download_status)
 
     node.download_status[message.id] = download_status
@@ -411,6 +435,7 @@ async def download_task(
         download_status,
         file_size,
     )
+    return download_status, file_name
 
 
 # pylint: disable = R0915,R0914
@@ -471,7 +496,7 @@ async def download_media(
                 continue
             media_group = await _get_download_media_group(client, message, node)
             file_name, temp_file_name, file_format = await _get_media_meta(
-                node.chat_id, message, _media, _type, media_group
+                node.chat_id, message, _media, _type, media_group, node
             )
             media_size = getattr(_media, "file_size", 0)
 
@@ -480,8 +505,11 @@ async def download_media(
                 ui_file_name = f"****{os.path.splitext(file_name)[-1]}"
 
             if _can_download(_type, file_formats, file_format):
-                if media_group:
-                    _save_media_group_text(node.chat_id, media_group)
+                text_messages = getattr(node, "selected_media_group", None) or media_group or [message]
+                _save_media_text(
+                    node.chat_id, text_messages, node,
+                    path_message=media_group[0] if media_group else message,
+                )
                 if _is_exist(file_name):
                     file_size = os.path.getsize(file_name)
                     if file_size or file_size == media_size:
@@ -593,20 +621,58 @@ def _check_config() -> bool:
 async def worker(client: pyrogram.client.Client):
     """Work for download task"""
     while app.is_running:
+        item = None
         try:
             item = await queue.get()
             message = item[0]
             node: TaskNode = item[1]
 
             if node.is_stop_transmission:
+                _record_web_task(node, message, "Cancelled")
                 continue
 
-            if node.client:
-                await download_task(node.client, message, node)
-            else:
-                await download_task(client, message, node)
+            runtime_client = node.client or client
+            try:
+                if app.web_state.is_blocked(node.chat_id, message.id):
+                    node.download_status[message.id] = DownloadStatus.SkipDownload
+                    _record_web_task(node, message, "blacklisted")
+                    continue
+                _record_web_task(node, message, "Downloading")
+                download_future = asyncio.create_task(download_task(runtime_client, message, node))
+                with active_download_lock:
+                    active_download_tasks[(str(node.chat_id), message.id)] = (node, download_future)
+                try:
+                    result = await download_future
+                except asyncio.CancelledError:
+                    if asyncio.current_task().cancelling():
+                        raise
+                    from module.pyrogram_extension import _download_cache
+                    _download_cache.store.pop((node.chat_id, message.id), None)
+                    if not getattr(node, "web_remove_requested", False):
+                        _record_web_task(node, message, "Cancelled")
+                    continue
+                if node.is_stop_transmission:
+                    from module.pyrogram_extension import _download_cache
+                    _download_cache.store.pop((node.chat_id, message.id), None)
+                    if not getattr(node, "web_remove_requested", False):
+                        _record_web_task(node, message, "Cancelled")
+                elif result is not None:
+                    status, file_path = result
+                    _record_web_task(node, message, status.name, file_path)
+            except Exception as error:
+                logger.exception("Download task failed for message {}", message.id)
+                _record_web_task(node, message, "FailedDownload")
+        except asyncio.CancelledError:
+            if item is not None and not getattr(node, "web_remove_requested", False):
+                _record_web_task(node, message, "Cancelled")
+            raise
         except Exception as e:
             logger.exception(f"{e}")
+        finally:
+            if item is not None:
+                with active_download_lock:
+                    active_download_tasks.pop((str(node.chat_id), message.id), None)
+                queue.task_done()
 
 
 async def download_chat_task(
@@ -717,9 +783,8 @@ async def stop_server(client: pyrogram.Client):
     await client.stop()
 
 
-def main():
-    """Main function of the downloader."""
-    tasks = []
+async def _start_web_runtime():
+    """Connect the Telegram transport without prompting in the terminal."""
     client = HookClient(
         "media_downloader",
         api_id=app.api_id,
@@ -728,49 +793,95 @@ def main():
         workdir=app.session_file_path,
         start_timeout=app.start_timeout,
         no_updates=True,
+        bot_token=app.bot_token or None,
     )
     try:
-        app.pre_run()
-        init_web(app)
+        authorized = await client.connect()
+        if not authorized and app.bot_token:
+            client.me = await client.sign_in_bot(app.bot_token)
+            authorized = True
+        return client, authorized
+    except BaseException:
+        if client.is_connected:
+            await client.disconnect()
+        raise
 
-        set_max_concurrent_transmissions(client, app.max_concurrent_transmissions)
 
-        app.loop.run_until_complete(start_server(client))
-        logger.success(_t("Successfully started (Press Ctrl+C to stop)"))
+async def _activate_web_runtime(client):
+    """Initialize an authorized client and start queue workers."""
+    client.me = await client.get_me()
+    await client.initialize()
+    set_max_concurrent_transmissions(client, app.max_concurrent_transmissions)
+    app.worker_tasks = [
+        app.loop.create_task(worker(client)) for _ in range(app.max_download_task)
+    ]
+    logger.success("Telegram client started from Web UI")
+    return True
 
-        app.loop.create_task(download_all_chat(client))
-        for _ in range(app.max_download_task):
-            task = app.loop.create_task(worker(client))
-            tasks.append(task)
 
-        if app.bot_token:
-            app.loop.run_until_complete(
-                start_download_bot(app, client, add_download_task, download_chat_task)
+async def _stop_web_runtime():
+    """Stop the web-controlled client and workers without stopping the UI."""
+    from module.web import _web_runtime
+
+    client = _web_runtime.get("client")
+    for task in getattr(app, "worker_tasks", []):
+        task.cancel()
+    for task in getattr(app, "worker_tasks", []):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    app.worker_tasks = []
+    while not queue.empty():
+        try:
+            pending_message, pending_node = queue.get_nowait()
+            app.web_state.record(
+                pending_node.chat_id, pending_message.id,
+                pending_message.caption or pending_message.text or "", "Cancelled", ""
             )
-        _exec_loop()
+            queue.task_done()
+        except asyncio.QueueEmpty:
+            break
+    from module.pyrogram_extension import reset_download_cache
+
+    reset_download_cache()
+    if client:
+        from module.web import _web_runtime
+
+        if _web_runtime.get("authorized"):
+            await stop_server(client)
+        else:
+            await client.disconnect()
+    return True
+
+
+def main():
+    """Run the web UI; Telegram and downloads remain stopped until requested."""
+    try:
+        app.pre_run()
+        from module.web import configure_web_runtime
+
+        configure_web_runtime(
+            app, app.loop, add_download_task, _start_web_runtime,
+            _activate_web_runtime, _stop_web_runtime
+        )
+        init_web(app)
+        logger.info("Web UI ready; Telegram client is stopped")
+        app.loop.run_forever()
     except KeyboardInterrupt:
         logger.info(_t("KeyboardInterrupt"))
-    except Exception as e:
-        logger.exception("{}", e)
+    except Exception as error:
+        logger.exception("Web UI startup failed: {}", error)
     finally:
         app.is_running = False
-        if app.bot_token:
-            app.loop.run_until_complete(stop_download_bot())
-        app.loop.run_until_complete(stop_server(client))
-        for task in tasks:
-            task.cancel()
+        if not app.loop.is_closed():
+            for task in asyncio.all_tasks(app.loop):
+                task.cancel()
+            app.loop.run_until_complete(app.loop.shutdown_asyncgens())
+            app.loop.close()
         logger.info(_t("Stopped!"))
-        # check_for_updates(app.proxy)
-        logger.info(f"{_t('update config')}......")
-        app.update_config()
-        logger.success(
-            f"{_t('Updated last read message_id to config file')},"
-            f"{_t('total download')} {app.total_download_task}, "
-            f"{_t('total upload file')} "
-            f"{app.cloud_drive_config.total_upload_success_file_count}"
-        )
 
 
 if __name__ == "__main__":
-    if _check_config():
-        main()
+    print_meta(logger)
+    main()
